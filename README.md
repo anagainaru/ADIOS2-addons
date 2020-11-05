@@ -2,6 +2,14 @@
 
 [[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
 
+**TODO**
+* BP4 engine 
+  * Create my own with multiple BP4 engines underneath
+  * `BPEngine` folder
+* Adios serializer on CPU 
+  * Reimplement for GPU
+* Data streaming
+
 ## Installing ADIOS-2 
 
 Installing ADIOS-2 from source code from the latest github release.

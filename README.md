@@ -1,5 +1,7 @@
 # ADIOS2 First steps
 
+[[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
+
 ## Installing ADIOS-2 
 
 Installing ADIOS-2 from source code from the latest github release.
@@ -52,6 +54,8 @@ $ module load adios2
 
 ADIOS-2 has several examples on how to use each engine in `${ADIOS_HOME}/ADIOS2/examples/` (github link [here](https://github.com/ornladios/ADIOS2/tree/master/examples)).
 
+For storage transfer to and from applications, the BP engine is used.
+
 ```
 $ cd ${ADIOS_HOME}/build
 
@@ -63,3 +67,10 @@ Float vector inside myVector_cpp.bp: {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, }
 ```
 
 ## Running simple streaming example
+
+For streaming, the SST or SSC engines can be used. From the `${ADIOS_HOME}/build` directory:
+
+| Terminal 1 | Terminal 2 |
+|---|---|
+|`$ ./bin/hello_sstWriter` | `$ ./bin/hello_sstReader` |
+| | Incoming variable is of size 10 <br/> Reader rank 0 reading 10 floats starting at element 0 |

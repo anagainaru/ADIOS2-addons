@@ -3,10 +3,10 @@
 # accompanying file Copyright.txt for details.
 #------------------------------------------------------------------------------#
 
-add_executable(bpAnaWriteRead bpWriteRead.cpp)
-target_link_libraries(bpAnaWriteRead adios2::cxx11)
+add_executable(bpCamWriteRead bpWriteRead.cpp)
+target_link_libraries(bpCamWriteRead adios2::cxx11)
 
 if(ADIOS2_HAVE_MPI)
-    add_executable(bpAnaWriteRead_mpi bpWriteRead.cpp)
-    target_link_libraries(bpAnaWriteRead_mpi adios2::cxx11_mpi MPI::MPI_C)
+    add_executable(bpCamWriteRead_mpi bpWriteRead.cpp)
+    target_link_libraries(bpCamWriteRead_mpi adios2::cxx11_mpi MPI::MPI_C)
 endif()

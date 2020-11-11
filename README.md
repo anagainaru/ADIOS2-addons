@@ -2,13 +2,19 @@
 
 [[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
 
-**TODO**
-* BP4 engine 
-  * Create my own with multiple BP4 engines underneath
-  * `BPEngine` folder
-* Adios serializer on CPU 
-  * Reimplement for GPU
-* Data streaming
+**List of projects**
+1. Campaign engine 
+    * Create engine with multiple BP4 engines underneath
+    * `FileEngine` folder
+
+```
+git@github.com:anagainaru/ADIOS2.git
+git checkout file_engine
+```
+  
+2. Adios serializer on CPU 
+    * Reimplement for GPU
+3. Data streaming
 
 ## Installing ADIOS-2 
 

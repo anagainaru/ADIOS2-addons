@@ -5,14 +5,15 @@ Campaign management having hierarchies of files each with its own metadata. Ther
 ### Description of the current file engines
 
 The file engine used by ADIOS applications is BP4.
-The BP4 engine works in steps
-* Examplain the code
+* Examplain the code for BP4 (The BP4 engine works in steps etc)
+* What would a new engine need to implement
 
-**Adding a new storage engine in ADIOS**
+### Adding a new storage engine in ADIOS
 
-* Create a new folder in `${ADIOS_HOME}/source/adios2/engine/` to include the code used by the new engine (in our cases this will be called `campb`).
+**Add the new read/write functionality**
 
-* Add the new files in the path used by the compiler
+Create a new folder in `${ADIOS_HOME}/source/adios2/engine/` to include the code used by the new engine (in our cases this will be called `campb`).
+Add the new files in the path used by the compiler.
 
 In `${ADIOS_HOME}/source/adios2/CMakeLists.txt` two lines need to be added for the reader and the writer sides of the engine:
 
@@ -21,7 +22,7 @@ engine/cambp/CamBPReader.cpp engine/cambp/CamBPReader.tcc
 engine/cambp/CamBPWriter.cpp engine/cambp/CamBPWriter.tcc
 ```
 
-* Create the mapping between the string name used for the engine and the pointer to the classes that implement the engnine.
+**Create the mapping between the string name used for the engine and the pointer to the classes that implement the engnine.**
 
 In `${ADIOS_HOME}/source/adios2/core/IO.cpp`, add a new entry in the Factory data structure.
 
@@ -35,7 +36,7 @@ std::unordered_map<std::string, IO::EngineFactoryEntry> Factory = {
 }
 ```
 
-* Deactivate the streaming capability for the new engine
+**Deactivate the streaming capability for the new engine**
 
 In `${ADIOS_HOME}/source/utils/adios_reorganize/Reorganize.cpp` on line 275 add the new file engine:
 
@@ -47,7 +48,7 @@ In `${ADIOS_HOME}/source/utils/adios_reorganize/Reorganize.cpp` on line 275 add 
     }
 ```
 
-* Add the new engine in the printUsage function
+**Add the new engine in the printUsage function**
 
 In `${ADIOS_HOME}/source/utils/adios_reorganize/Reorganize.cpp` on line 295:
 
@@ -55,7 +56,7 @@ In `${ADIOS_HOME}/source/utils/adios_reorganize/Reorganize.cpp` on line 295:
 Supported read methods: BPFile, CamBP, HDF5, SST, DataMan,
 ```
 
-* Add the new engine to the list returned by the getEngineList
+**Add the new engine to the list returned by the getEngineList**
 
 In the `${ADIOS_HOME}/source/utils/bpls/bpls.cpp` in the getEnginesList function, add the new engine to the returned list.
 
@@ -79,7 +80,7 @@ In the `${ADIOS_HOME}/source/utils/bpls/bpls.cpp` in the getEnginesList function
  }
 ```
 
-### Example
+### Example using the new engine
 
 Simple example to test the basic functionality is implemented in the `campaign_example` folder.
 In order for this example to be included in ADIOS, a new folder needs to be created for it in ${ADIOS_ROOT}/examples (in our case `campaign`) and the CMakeLists.txt file needs to be updated with the following line:

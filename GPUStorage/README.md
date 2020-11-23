@@ -4,7 +4,7 @@
 
 Documentation about the NVidia cuFile API can be found [here](https://docs.nvidia.com/gpudirect-storage/index.html).
 
-Instructions to build Nvidia cuFile code are for System76 at ORNL.
+Instructions to build Nvidia cuFile code are for sdg-tm76 at ORNL. Configuring and installing the Nvidia driver on sdg-tm76 can be found [here](https://docs.google.com/document/d/1j___qra3mpecBxy_J9MKi38wKoQafC4J3oKcDyhcEMw)
 
 Exampes with code using the cuFile API can be found at `/usr/local/cuda-11.1/gds/samples`
 
@@ -15,6 +15,4 @@ CUFILE_PATH := /usr/local/cuda-11.1/targets/x86_64-linux/lib/
 CXXFLAGS    := -Wall
 CXXFLAGS    += -I $(CUDA_PATH)/include/
 CXXFLAGS    += -I $(CUFILE_PATH)
-
-
 ```

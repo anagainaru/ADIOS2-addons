@@ -10,9 +10,6 @@ Exampes with code using the cuFile API can be found at `/usr/local/cuda-11.1/gds
 
 Flags needed for compile:
 ```
-CUDA_PATH   := /usr/local/cuda
-CUFILE_PATH := /usr/local/cuda-11.1/targets/x86_64-linux/lib/
-CXXFLAGS    := -Wall
-CXXFLAGS    += -I $(CUDA_PATH)/include/
-CXXFLAGS    += -I $(CUFILE_PATH)
+ g++ -Wall -I /usr/local/cuda/include/  -I /usr/local/cuda-11.1/.targets/x86_64-linux/lib/ hello_cuda.cc -o hello_cuda -L /usr/local/cuda-11.1/targets/x86_64-linux/lib/ -lcufile -L /usr/local/cuda/lib64/ -lcuda -L /usr/local/cuda/lib64/ -lcudart_static -lrt -lpthread -ldl
+
 ```

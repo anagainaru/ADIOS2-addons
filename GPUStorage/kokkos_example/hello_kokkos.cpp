@@ -19,7 +19,6 @@ int gpu_to_storage(const char *file_name, void *gpumem_buf){
 if (fd < 0) {
   std::cerr << "write file open error : " << std::strerror(errno)
 	  << std::endl;
-  cudaFree(gpumem_buf);
   return -1;
 }
 
@@ -35,7 +34,6 @@ if (fd < 0) {
 	  std::cerr << "file register error: "
       << cuFileGetErrorString(status) << std::endl;
 	  close(fd);
-  	cudaFree(gpumem_buf);
 	return -1;
   }
       
@@ -43,14 +41,13 @@ if (fd < 0) {
   if (ret < 0) {
       std::cerr << "write failed : "
           << cuFileGetErrorString(errno) << std::endl;
-  	cudaFree(gpumem_buf);
       return -1;
    }
 
   return 0;
 }
 
-void *storage_to_gpu(const char *file_name)
+int storage_to_gpu(const char *file_name, void *gpumem_buf)
 {
   int device_id = 3;
   const size_t size = MAX_BUF_SIZE;
@@ -59,7 +56,7 @@ void *storage_to_gpu(const char *file_name)
   if (fd < 0) {
     std::cerr << "read file open error : " << file_name << " "
         << std::strerror(errno) << std::endl;
-    return NULL;
+    return -1;
   }
   
   size_t ret = -1;
@@ -75,13 +72,9 @@ void *storage_to_gpu(const char *file_name)
     std::cerr << "file register error: "
         << cuFileGetErrorString(status) << std::endl;
     close(fd);
-    return NULL;
+    return -1;
   }
 
-  void *gpumem_buf;
-
-  cudaMalloc(&gpumem_buf, size);
-  cudaMemset(gpumem_buf, 0, size);
   ret = cuFileRead(fh, gpumem_buf, size, 0, 0);
   if (ret < 0) {
     std::cerr << "read failed : "
@@ -89,12 +82,12 @@ void *storage_to_gpu(const char *file_name)
     cuFileHandleDeregister(fh);
     close(fd);
     cudaFree(gpumem_buf);
-    return NULL;
+    return -1;
   }
 
   cuFileHandleDeregister(fh);
   close (fd);
-  return gpumem_buf;
+  return 0;
 }
 
 int main(int argc, char*argv[])
@@ -106,7 +99,14 @@ int main(int argc, char*argv[])
 
   Kokkos::print_configuration(std::cout);
 
-  void *devPtr = storage_to_gpu(readf);
-  int ret = gpu_to_storage(writef, devPtr);
+  const size_t size = MAX_BUF_SIZE;
+  void *gpumem_buf;
+
+  cudaMalloc(&gpumem_buf, size);
+  cudaMemset(gpumem_buf, 0, size);
+  int ret = storage_to_gpu(readf, gpumem_buf);
+  ret += gpu_to_storage(writef, gpumem_buf);
+  
+  cudaFree(gpumem_buf);
   return ret;
 }

@@ -6,13 +6,14 @@
 // needed by cuFile
 #include "cufile.h"
 
-// needed by check_cudaruntimecall
+// needed by checksums
 #include "cufile_sample_utils.h"
 
 using namespace std;
 
 #define MAX_BUF_SIZE (31 * 1024 * 1024UL)
 
+// Write data from GPU memory to a file
 int gpu_to_storage(const char *file_name, void *gpumem_buf){
   const size_t size = MAX_BUF_SIZE;
   int fd = open(file_name, O_CREAT | O_RDWR | O_DIRECT, 0664);
@@ -36,7 +37,11 @@ if (fd < 0) {
 	  close(fd);
 	return -1;
   }
-      
+
+  int idx;
+  cudaGetDevice(&idx);
+  std::cout << "GPU direct write memory of size :"
+            << size << " gpu id: " << idx << std::endl;
   ret = cuFileWrite(fh, gpumem_buf, size, 0, 0);
   if (ret < 0) {
       std::cerr << "write failed : "
@@ -47,7 +52,8 @@ if (fd < 0) {
   return 0;
 }
 
-int storage_to_gpu(const char *file_name, void *gpumem_buf)
+// Read data from NVME directly to the GPU memory space 
+int storage_to_gpu(const char *file_name, void * gpumem_buf)
 {
   int device_id = 3;
   const size_t size = MAX_BUF_SIZE;
@@ -75,6 +81,10 @@ int storage_to_gpu(const char *file_name, void *gpumem_buf)
     return -1;
   }
 
+  int idx;
+  cudaGetDevice(&idx);
+  std::cout << "GPU direct read memory of size :"
+            << size << " gpu id: " << idx << std::endl;
   ret = cuFileRead(fh, gpumem_buf, size, 0, 0);
   if (ret < 0) {
     std::cerr << "read failed : "

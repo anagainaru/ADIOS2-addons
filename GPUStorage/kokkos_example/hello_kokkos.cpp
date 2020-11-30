@@ -1,7 +1,9 @@
 #include <Kokkos_Core.hpp>
+#include <fstream>
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
+#include <iterator>
 
 // needed by cuFile
 #include "cufile.h"
@@ -55,9 +57,7 @@ if (fd < 0) {
 // Read data from NVME directly to the GPU memory space 
 int storage_to_gpu(const char *file_name, void * gpumem_buf)
 {
-  int device_id = 3;
   const size_t size = MAX_BUF_SIZE;
-  check_cudaruntimecall(cudaSetDevice(device_id));
   int fd = open(file_name, O_RDONLY | O_DIRECT);
   if (fd < 0) {
     std::cerr << "read file open error : " << file_name << " "
@@ -91,7 +91,6 @@ int storage_to_gpu(const char *file_name, void * gpumem_buf)
 	<< cuFileGetErrorString(errno) << std::endl;
     cuFileHandleDeregister(fh);
     close(fd);
-    cudaFree(gpumem_buf);
     return -1;
   }
 
@@ -105,10 +104,14 @@ int main(int argc, char*argv[])
   const char *readf = "/mnt/nvme/read.dat";
   const char *writef = "/mnt/nvme/write.dat";
   
-  Kokkos::ScopeGuard(argc, argv); // initialize and finalize
+  // Initialize Kokkos to run on GPU with id 3
+  int ret, device_id = 3;
+  Kokkos::InitArguments args;
+  args.device_id = device_id;
+  Kokkos::ScopeGuard gds(args);
 
-  Kokkos::print_configuration(std::cout);
-
+  // Read data into GPU memory then write it to NVME
+  // twice using the GPU and CPU
   const size_t size = MAX_BUF_SIZE;
   void *gpumem_buf;
 

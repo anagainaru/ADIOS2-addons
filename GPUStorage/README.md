@@ -21,5 +21,15 @@ Flags needed for compile:
 
 Compile the code
 ```
-make KOKKOS_DEVICES=Cuda
+$ export PATH=$PATH:/usr/local/cuda-11.1/bin
+$ make KOKKOS_DEVICES=Cuda -j8 KOKKOS_ARCH=Turing75
+
+$ sudo ./hello.cuda
+GPU direct read memory of size :32505856 gpu id: 3
+GPU direct write memory of size :32505856 gpu id: 3
+CPU Writing memory of size :32505856
+21a3e2187bc12f803690bf809775694d81e06150dfc92c6f77322ac349890f4
+21a3e2187bc12f803690bf809775694d81e06150dfc92c6f77322ac349890f4
+21a3e2187bc12f803690bf809775694d81e06150dfc92c6f77322ac349890f4
+SHA SUM Match
 ```

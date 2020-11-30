@@ -11,7 +11,7 @@ default: build
 CUDA_PATH = /usr/local/cuda
 CUFILE_PATH = /usr/local/cuda-11.1/targets/x86_64-linux/lib/
 CXXFLAGS = -Wall
-CXXFLAGS += -I$(CUFILE_PATH) -I..
+CXXFLAGS += -I$(CUFILE_PATH)
 ###########################
 CUDART_STATIC = -Bstatic -lcudart_static -lrt -lpthread -ldl
 CUFILE_LIB = -L$(CUFILE_PATH) -lcufile

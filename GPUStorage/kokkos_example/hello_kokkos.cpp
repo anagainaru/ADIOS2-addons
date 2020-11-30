@@ -99,10 +99,21 @@ int storage_to_gpu(const char *file_name, void * gpumem_buf)
   return 0;
 }
 
+// Write data from CPU memory to a file
+int cpu_to_storage(const char *file_name, void *cpumem_buf)
+{
+  const size_t size = MAX_BUF_SIZE;
+  std::ofstream outfs(file_name);
+  outfs.write((char *) cpumem_buf, size);
+  cout << "CPU Writing memory of size :" << size << std::endl;
+  return 0;
+}
+
 int main(int argc, char*argv[])
 {
   const char *readf = "/mnt/nvme/read.dat";
   const char *writef = "/mnt/nvme/write.dat";
+  const char *writef_cpu = "/mnt/nvme/write_cpu.dat";
   
   // Initialize Kokkos to run on GPU with id 3
   int ret, device_id = 3;
@@ -113,13 +124,34 @@ int main(int argc, char*argv[])
   // Read data into GPU memory then write it to NVME
   // twice using the GPU and CPU
   const size_t size = MAX_BUF_SIZE;
-  void *gpumem_buf;
+  Kokkos::View<char*> kokkos_buf( "gpu_buffer", size );
+  void *gpumem_buf = (void *) kokkos_buf.data();
 
-  cudaMalloc(&gpumem_buf, size);
-  cudaMemset(gpumem_buf, 0, size);
-  int ret = storage_to_gpu(readf, gpumem_buf);
-  ret += gpu_to_storage(writef, gpumem_buf);
-  
-  cudaFree(gpumem_buf);
+  storage_to_gpu(readf, gpumem_buf);
+  auto cpu_buf = Kokkos::create_mirror_view_and_copy(
+		  Kokkos::HostSpace{}, kokkos_buf);
+  gpu_to_storage(writef, gpumem_buf);
+  cpu_to_storage(writef_cpu, (void *) cpu_buf.data());
+
+  // Compare file signatures
+  unsigned char iDigest[SHA256_DIGEST_LENGTH];
+  unsigned char oDigest[SHA256_DIGEST_LENGTH], coDigest[SHA256_DIGEST_LENGTH];
+  SHASUM256(readf, iDigest, size);
+  DumpSHASUM(iDigest);
+
+  SHASUM256(writef, oDigest, size);
+  DumpSHASUM(oDigest);
+
+  SHASUM256(writef_cpu, coDigest, size);
+  DumpSHASUM(coDigest);
+
+  if ((memcmp(iDigest, oDigest, SHA256_DIGEST_LENGTH) != 0) ||
+      (memcmp(iDigest, coDigest, SHA256_DIGEST_LENGTH) != 0)) {
+	std::cerr << "SHA SUM Mismatch" << std::endl;
+	ret = -1;
+  } else {
+	std::cout << "SHA SUM Match" << std::endl;
+	ret = 0;
+  }
   return ret;
 }

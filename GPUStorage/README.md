@@ -26,7 +26,9 @@ g++ -Wall -I /usr/local/cuda/include/  -I /usr/local/cuda-11.1/.targets/x86_64-l
 
 $ export PATH=$PATH:/usr/local/cuda-11.1/bin
 $ make
-$ ./hello_cuda
+$ sudo ./hello_cuda
+Allocating and reading memory of size :32505856 gpu id: 3
+Writing memory of size :32505856 gpu id: 3
 ```
 
 **Read/Write kokkos code**
@@ -61,16 +63,16 @@ MOFED 5.1: [Mellanox OFED](https://www.mellanox.com/products/infiniband-drivers/
 **Installation Instruction** <br/>
 Official instruction: [Release notes](https://docs.nvidia.com/gpudirect-storage/release-notes/index.html) <br/>
 MOFED is required to install when NVME is used even if we don’t need RDMA over IB. <br/>
-Installation order: MOFED -> CUDA with NVIDIA driver -> GDS. Note that GDS may wrongly uninstall NVIDIA driver, so you may need to install the NVIDIA driver again in the end. <br/>
+Installation order: `MOFED -> CUDA with NVIDIA driver -> GDS`. Note that GDS may wrongly uninstall NVIDIA driver, so you may need to install the NVIDIA driver again in the end. <br/>
 GDS will force you to use the latest NVIDIA driver (v455), so don’t try to use a lower version. <br/>
 
 **Filesystem configuration** <br/>
 Besides the configuration mentioned in the official instruction, the EXT4 filesystem needs to be configured with ‘data=ordered’ mounting option as instructed [here](https://docs.nvidia.com/gpudirect-storage/troubleshooting-guide/index.html#mount-ext4-fs) <br/>
-On sdg-tm76, this only works for the second NVME ‘/dev/nvme1n1p1’ with manual mount operations. This means it won’t work when configuring ‘/etc/fstab’. You need to manually unmount (sudo umount /mnt/nvme) and mount with correct options (sudo mount -o data=ordered /dev/nvme1n1p1 /mnt/nvme). No reboot is required.<br/>
+On sdg-tm76, this only works for the second NVME `/dev/nvme1n1p1` with manual mount operations. This means it won’t work when configuring `/etc/fstab`. You need to manually unmount (sudo umount /mnt/nvme) and mount with correct options (`sudo mount -o data=ordered /dev/nvme1n1p1 /mnt/nvme`). No reboot is required.<br/>
 After that the directory /mnt/nvme should be able to be written and read by GPU directly.</br>
 
 **GPU to be used** <br/>
 There are 4 GPUs on the system. Device ID 0-2 are RTX 2080 Ti, which are gaming GPUs and do not support GDS. The last one with device ID=3 is a Quadro RTX 5000 GPU which does support GDS. You need to configure that in your program to only use that GPU for I/O.
 
 **Debugging GDS** <br/>
-To enable outputting trace information for debugging, toggle the ‘level’ option in ‘/etc/cufile.json’ to be ‘TRACE’. Then, a file ‘cufile.log’ will be generated containing trace information.
+To enable outputting trace information for debugging, toggle the `level` option in `/etc/cufile.json` to be `TRACE`. Then, a file `cufile.log` will be generated containing trace information.

@@ -46,6 +46,10 @@ if (fd < 0) {
       return -1;
    }
 
+  int idx;
+  check_cudaruntimecall(cudaGetDevice(&idx));
+  std::cout << "Writing memory of size :"
+		<< size << " gpu id: " << idx << std::endl;
   return 0;
 }
 
@@ -91,6 +95,10 @@ void *storage_to_gpu(const char *file_name)
     return NULL;
   }
 
+  int idx;
+  check_cudaruntimecall(cudaGetDevice(&idx));
+  std::cout << "Allocating and reading memory of size :"
+		<< size << " gpu id: " << idx << std::endl;
   cuFileHandleDeregister(fh);
   close (fd);
   return gpumem_buf;

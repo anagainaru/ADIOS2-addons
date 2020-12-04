@@ -64,6 +64,21 @@ $ module avail adios
 $ module load adios2
 ```
 
+## Running the tests
+
+Run manually the same tests from the CI. From the buid directory, run `ctest`.
+```
+ctest -I S,E 
+# Run tests from number S to number E
+
+ctest -R TestName
+# Run only test that contain TestName
+
+ctest ... -VV
+# Verbose
+
+```
+
 ## Running simple storage example
 
 ADIOS-2 has several examples on how to use each engine in `${ADIOS_HOME}/ADIOS2/examples/` (github link [here](https://github.com/ornladios/ADIOS2/tree/master/examples)).

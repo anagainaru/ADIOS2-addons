@@ -33,10 +33,29 @@ m_FileDataManager.OpenFiles(m_SubStreamNames, m_OpenMode,
   - BP4Writer::InitBPBuffer
       - Prepares the buffer headers
       - BP4 supports an Append mode where a simulation can be restarted from a given step (all the data that was written previously will be loaded before continuing the execution)
-      - If the mode is not Append and the files are all new, the function makes the header for the data, matadata and the metadata index file.
+      - If the mode is not Append and the files are all new, the function makes the header for the data, matadata and the metadata index file by calling `MakeHeader`.
 
+The `MakeHeader` function:
+- Called by the data, metadata and the index metadata files
+- Adds ADIOS and BP version to the header 
+- Adds information about the format of the data (little endian .. )
+- Adds the first `ProcessGroup` block in the data file following the format of the header described in the next section
+
+```
+    m_BP4Serializer.PutProcessGroupIndex(
+        m_IO.m_Name, m_IO.m_HostLanguage,
+        m_FileDataManager.GetTransportsTypes());
+
+```
 
 ## Buffer Headers
+
+BP4 File structure:
+- `outpub.bp` folder containing:
+  - `md.idx`: table with 64 byte long rows indexing the metadata file
+  - `md.0`: file with metadata information for all variables (`global.md` in BP3)
+  - `data.0`, `data.aggregation_step`, ..., `data.N`: data files, incorporating metadata interspersed with the data object
+
 
 ## Debugging ADIOS
 

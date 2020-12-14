@@ -103,3 +103,21 @@ For streaming, the SST or SSC engines can be used. From the `${ADIOS_HOME}/build
 |---|---|
 |`$ ./bin/hello_sstWriter` | `$ ./bin/hello_sstReader` |
 | | Incoming variable is of size 10 <br/> Reader rank 0 reading 10 floats starting at element 0 |
+
+## Test what data was written to the BP folder
+
+The `pbls` executable can be used to show data contained inside a bp folder. For example, the `hello_bpWriter` exec create a folder called `myVector_cpp.bp`.
+```
+$ ./bin/bpls -ld myVector_cpp.bp/
+  float    bpFloats  {10} = 0 / 9
+    (0)    0 1 2 3 4 5
+    (6)    6 7 8 9 
+
+  int32_t  bpInts    {10} = -9 / 0
+    (0)    0 -1 -2 -3 -4 -5
+    (6)    -6 -7 -8 -9 
+
+$ ./bin/bpls -l myVector_cpp.bp/
+  float    bpFloats  {10} = 0 / 9
+  int32_t  bpInts    {10} = -9 / 0
+```

@@ -15,9 +15,26 @@ adios2::Engine bpWriter = io.Open(fname, adios2::Mode::Write);
 ```
 
 The `Open` function, initializes a Serializer object and a BP4Writer object and initializes all the buffers and objects needed for writing data into a file.
-  - BP4Writer::InitParameters
-  - BP4Writer::InitTransports
+  - BP4Writer::InitParameters 
+      - Initalizes input parameters passed through the `adios2::IO` variable (e.g. `io.SetEngine('BP4')`)
+
+  - BP4Writer::InitTransports 
+      - Transport is set by default to `File`. The function creates the files it will use to write the data (If burst buffers are used the file names contain the path to the BB)
+      - In case there is aggregation (not all ranks write files) the `m_BP4Serializer.m_Aggregator.m_IsConsumer` decides which ranks are in charge of writing
+      - The BP folder is created and inside the data.rank files are created
+```
+m_FileDataManager.OpenFiles(m_SubStreamNames, m_OpenMode,
+                            m_IO.m_TransportsParameters,
+                            m_BP4Serializer.m_Profiler.m_IsActive);
+```
+  -
+      - Rank 0 creates the metadata files (`{name}.md.0` and `{name}.md.idx`)
+
   - BP4Writer::InitBPBuffer
+      - Prepares the buffer headers
+      - BP4 supports an Append mode where a simulation can be restarted from a given step (all the data that was written previously will be loaded before continuing the execution)
+      - If the mode is not Append and the files are all new, the function makes the header for the data, matadata and the metadata index file.
+
 
 ## Buffer Headers
 

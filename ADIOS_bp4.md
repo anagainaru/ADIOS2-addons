@@ -3,6 +3,7 @@
 Steps from initialization to performing I/O operations, description of the buffers needed and the format of the headers.
 The BP4 engine is a file engine and uses POSIX functions underneath.
 
+TODO, move sections to different files
 <a href="#Buffer Headers" /> Buffer Headers </a> <br/>
 <a href="#Debugging ADIOS" /> Debugging ADIOS </a>
 
@@ -10,6 +11,22 @@ The BP4 engine is a file engine and uses POSIX functions underneath.
 
 ### Write
 
+There are three sections in the write workflow: initialization (executed during the IO.Open call), performing puts (executed during the simualtion) and close (executed during IO.Close call).
+
+**Initialization**
+
+```
+- Serializer constructor in toolkit/format/bp/bp4
+- BP4Writer constructor in engine/bp4
+- BP4Writer::Init
+- BP4Writer::InitParameters
+- BP4Writer::InitTransports
+- BP4Writer::InitBPBuffer
+- BP4Serializer::MakeHeader
+- BP4Serializer::PutProcessGroupIndex
+```
+
+The application create an IO object and calls Open.
 ```c++
 adios2::Engine bpWriter = io.Open(fname, adios2::Mode::Write);
 ```
@@ -48,6 +65,64 @@ The `MakeHeader` function:
 
 ```
 
+**Performing puts**
+```
+- BP4Writer::BeginStep
+- BP4Writer::DoPut
+- BP4Writer::CurrentStep
+- BP4Writer::EndStep
+- BP4Writer::PerformPuts
+```
+
+The applications calls Put for any number of variables between calls to BeginStep and EndStep. There are two modes of writing data: deferred and sync (for deferred Put only copies variables to ADIOS buffers but does not write them until PerformPuts is executed). 
+
+The `BeginStep` function clears all the deferred variables.
+
+The two different types of Write and differentiate by different Put functions in the `BP4Writter.cpp` file:
+```
+#define declare_type(T)                                                        \
+    void BP4Writer::DoPutSync(Variable<T> &variable, const T *data)            \
+    {                                                                          \
+        PutSyncCommon(variable, variable.SetBlockInfo(data, CurrentStep()));   \
+        variable.m_BlocksInfo.pop_back();                                      \
+    }                                                                          \
+    void BP4Writer::DoPutDeferred(Variable<T> &variable, const T *data)        \
+    {                                                                          \
+        PutDeferredCommon(variable, data);                                     \
+    }
+```
+During Put, the current step is recorded.
+
+The `EndStep` function perform puts if there are any deferred variables, serializes the data and flushes.
+Flushing the data is done at certain steps (`currentStep % flushStepsCount == `) and it includes serializing the data,
+write data or write the aggregate data, reseting the buffer and write the metadata in both files (`md.0` and `md.idx`).
+At the end the current step is advanced.
+
+```
+- BP4Writer::Flush 
+- BP4Writer::DoFlush
+- BP4Writer::AggregateWriteData
+- BP4Serializer::CloseStream
+- BP4Serializer::SerializeMetadataInData
+- BP4Writer::WriteCollectiveMetadataFile
+```
+
+The `WriteCollectiveMetadataFile` function aggregates information from all the writing ranks into one metadata file by calling
+`BP4Serializer::AggregateCollectiveMetadata` and `AggregateCollectiveMetadataIndices`.
+The aggregated metadata is afterwards written by the `WriteFiles` function defined in `toolkit/transportman/TransportMan.cpp`:
+```
+        m_FileMetadataManager.WriteFiles(
+            m_BP4Serializer.m_Metadata.m_Buffer.data(),
+            m_BP4Serializer.m_Metadata.m_Position);
+```
+
+At the end, `BP4Writer::PopulateMetadataIndexFileContent` adds information about the current step in the metadata index buffer.
+All the buffers storing data and metadata are reset for the next step.
+
+**Closing the files**
+
+The application calls `IO.Close()` after the simulation is done. The routine in the end, writes out the deferred data and metadata in case EndStep or PerformPuts were not called, writing the index metadata file, close the data, metadata and the metadata index files and erase the engine object from IO.
+
 ## Buffer Headers
 
 BP4 File structure:
@@ -55,7 +130,6 @@ BP4 File structure:
   - `md.idx`: table with 64 byte long rows indexing the metadata file
   - `md.0`: file with metadata information for all variables (`global.md` in BP3)
   - `data.0`, `data.aggregation_step`, ..., `data.N`: data files, incorporating metadata interspersed with the data object
-
 
 ## Debugging ADIOS
 

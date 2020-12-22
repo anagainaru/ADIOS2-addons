@@ -50,6 +50,43 @@ CPU Writing memory of size :32505856
 SHA SUM Match
 ```
 
+**Adios Cuda code**
+
+Example of cuda code that uses ADIOS for read / write data to storage. Currently the example is included in the ADIOS example folder and requires modifications to the ADIOS library (described in the `README.md` file inside the `adios_cuda` folder.
+
+Running the example
+```
+export PATH=$PATH:/usr/local/cuda-11.1/bin
+git clone git@github.com:anagainaru/ADIOS2.git .
+git checkout gpu
+
+mkdir build
+cd build
+cmake ../ADIOS2
+make -j
+$ ./bin/GPUWriteRead_cuda
+Writing BP files from CPU memory
+Steps expected by the reader: 10
+Expecting 100 elements
+Simualation step 0 : 100 elements: 5
+Simualation step 10 : 100 elements: 15
+Simualation step 20 : 100 elements: 25
+Simualation step 30 : 100 elements: 35
+Simualation step 40 : 100 elements: 45
+Simualation step 50 : 100 elements: 55
+Simualation step 60 : 100 elements: 65
+Simualation step 70 : 100 elements: 75
+Simualation step 80 : 100 elements: 85
+Simualation step 90 : 100 elements: 95
+Success writing/reading through the CPU
+Writing BP files from GPU memory
+Steps expected by the reader: 1
+terminate called after throwing an instance of 'std::invalid_argument'
+  what():  ERROR: found null pointer in call to Variable<T>::Shape
+
+Aborted
+```
+
 ## Installing Nvidia drivers
 
 Installing and configuring NVIDIA GPUDirect Storage on sdg-tm76

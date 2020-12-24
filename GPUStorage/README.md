@@ -50,6 +50,66 @@ CPU Writing memory of size :32505856
 SHA SUM Match
 ```
 
+**Adios Cuda code**
+
+Example of cuda code that uses ADIOS for read / write data to storage. The folder `cuda_adios` contains a stand alone example of using adios within a CUDA program and an example that is included inside the ADIOS2 examples folder. Both require modifications to the ADIOS library (described [here](ADIOS.md)).
+
+Both examples use the same code and they write to the storage every 10 simulation steps, alternating between the CPU and GPU. Running the stand alone code
+```
+mkdir build
+cd build
+cmake ..
+make -j
+$ ./adios.cuda
+Steps expected by the reader: 10
+Expecting data per step: 100 elements
+Simualation step 0 : 100 elements: 5
+Simualation step 1 : 100 elements: 0
+Simualation step 2 : 100 elements: 25
+Simualation step 3 : 100 elements: 0
+Simualation step 4 : 100 elements: 45
+Simualation step 5 : 100 elements: 0
+Simualation step 6 : 100 elements: 65
+Simualation step 7 : 100 elements: 0
+Simualation step 8 : 100 elements: 85
+Simualation step 9 : 100 elements: 0
+```
+
+Running the code included in the ADIOS example. Output is the same for both.
+```
+git clone git@github.com:anagainaru/ADIOS2.git .
+git checkout gpu
+mkdir build
+cd build
+cmake ../ADIOS2
+make -j
+```
+
+**Adios Kokkos code**
+
+Code that makes calls to ADIOS from within a Kokkos code. Same example as Cuda Adios the writes alternate between CPU and GPU but this time the GPU data is also updated in every simulation step. 
+
+```
+mkdir build
+cd build
+cmake ..
+make -j
+export PATH=$PATH:/usr/local/cuda-11.1/bin
+./adios.kokkos
+Steps expected by the reader: 10
+Expecting data per step: 100 elements
+Simualation step 0 : 100 elements: 5
+Simualation step 1 : 100 elements: 50
+Simualation step 2 : 100 elements: 25
+Simualation step 3 : 100 elements: 150
+Simualation step 4 : 100 elements: 45
+Simualation step 5 : 100 elements: 250
+Simualation step 6 : 100 elements: 65
+Simualation step 7 : 100 elements: 350
+Simualation step 8 : 100 elements: 85
+Simualation step 9 : 100 elements: 450
+```
+
 ## Installing Nvidia drivers
 
 Installing and configuring NVIDIA GPUDirect Storage on sdg-tm76

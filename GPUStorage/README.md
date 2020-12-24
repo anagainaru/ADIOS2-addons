@@ -83,6 +83,7 @@ mkdir build
 cd build
 cmake ../ADIOS2
 make -j
+./bin/GPUWriteRead_cuda
 ```
 
 **Adios Kokkos code**

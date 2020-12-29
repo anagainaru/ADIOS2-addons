@@ -13,6 +13,9 @@ Currently nvcc is not in `PATH` so it need to be added before compiling any GPU 
 export PATH=$PATH:/usr/local/cuda-11.1/bin
 ```
 
+All the examples that use ADIOS with CUDA enabled require modifications to the ADIOS library (described [here](ADIOS.md)). The ADIOS library with CUDA enabled needs to be build and installed prior to running the examples. The example that uses kokkos with ADIOS calls needs the Kokkos library build and installed on the system. All examples have been tested on System76@ORNL with ADIOS installed in `/home/gainaru/adios/install/lib/cmake` and Kokkos in `/home/gainaru/kokkos/install/lib/cmake`. Change these paths to point to your own installations.
+
+
 ### Examples in this repo
 
 **Read/Write cuda code**
@@ -52,13 +55,14 @@ SHA SUM Match
 
 **Adios Cuda code**
 
-Example of cuda code that uses ADIOS for read / write data to storage. The folder `cuda_adios` contains a stand alone example of using adios within a CUDA program and an example that is included inside the ADIOS2 examples folder. Both require modifications to the ADIOS library (described [here](ADIOS.md)).
+Example of cuda code that uses ADIOS for read / write data to storage has two variants. The folder `cuda_adios` contains a stand alone example of using adios within a CUDA program and there is also the same example that is included inside the ADIOS2 examples folder. 
 
 Both examples use the same code and they write to the storage every 10 simulation steps, alternating between the CPU and GPU. Running the stand alone code
 ```
+export PATH=$PATH:/usr/local/cuda-11.1/bin
 mkdir build
 cd build
-cmake ..
+cmake -D adios2_ROOT=/home/gainaru/adios/install/lib/cmake ../
 make -j
 $ ./adios.cuda
 Steps expected by the reader: 10
@@ -83,6 +87,7 @@ mkdir build
 cd build
 cmake ../ADIOS2
 make -j
+./bin/GPUWriteRead_cuda
 ```
 
 **Adios Kokkos code**
@@ -90,11 +95,11 @@ make -j
 Code that makes calls to ADIOS from within a Kokkos code. Same example as Cuda Adios the writes alternate between CPU and GPU but this time the GPU data is also updated in every simulation step. 
 
 ```
+export PATH=$PATH:/usr/local/cuda-11.1/bin
 mkdir build
 cd build
-cmake ..
+cmake -D Kokkos_ROOT=/home/gainaru/kokkos/install/lib/cmake -D adios2_ROOT=/home/gainaru/adios/install/lib/cmake ../
 make -j
-export PATH=$PATH:/usr/local/cuda-11.1/bin
 ./adios.kokkos
 Steps expected by the reader: 10
 Expecting data per step: 100 elements

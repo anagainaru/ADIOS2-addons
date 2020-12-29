@@ -6,8 +6,8 @@
 cmake_minimum_required(VERSION 3.12)
 project(AdiosCuda CXX)
 
-find_package(Kokkos REQUIRED PATHS /home/gainaru/kokkos/install/lib/cmake)
-find_package(adios2 REQUIRED PATHS /home/gainaru/adios/install/lib/cmake)
+find_package(Kokkos REQUIRED)
+find_package(adios2 REQUIRED)
 
 add_executable(adios.kokkos bpWriteRead.cpp)
 target_link_libraries(adios.kokkos adios2::adios2 Kokkos::kokkos)

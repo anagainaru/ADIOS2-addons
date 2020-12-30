@@ -31,12 +31,20 @@ endif()
 
 If Cuda is enabled, the ADIOS library will check if the buffer provided by the user is in GPU or CPU space. This can be done in the `Put` function implemented in `source/adios2/core/Engine.tcc` or when the buffered is copied to the adios buffer.
 
-In the corresponding `CmakeLists.txt` file the link to the Cuda compiler needs to be added
+In the corresponding `CmakeLists.txt` file the link to the Cuda compiler needs to be added.
 ```
 if(ADIOS2_HAVE_CUDA)
   target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
   target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
 endif()
 ```
+For using GPU direct with CUDA, the libraries necessary for cuFile needs to be linked to ADIOS. The required `CmakeLists.txt` files need to include: 
 
+```
+if(ADIOS2_HAVE_CUDA)
+  target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS} /usr/local/cuda-11.1/targets/x86_64-linux/lib/)
+  target_link_directories(adios2_core PUBLIC /usr/local/cuda-11.1/targets/x86_64-linux/lib/)
+  target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES} -lcufile)
+endif()
+```
 

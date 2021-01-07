@@ -65,7 +65,7 @@ The `MakeHeader` function:
 
 ```
 
-**Performing puts**
+**Writing data to the bp4 files**
 ```
 - BP4Writer::BeginStep
 - BP4Writer::DoPut
@@ -74,7 +74,7 @@ The `MakeHeader` function:
 - BP4Writer::PerformPuts
 ```
 
-The applications calls Put for any number of variables between calls to BeginStep and EndStep. There are two modes of writing data: deferred and sync (for deferred Put only copies variables to ADIOS buffers but does not write them until PerformPuts is executed). 
+The applications calls Put for any number of variables between calls to BeginStep and EndStep. There are two modes of writing data: deferred and sync. `Put` only copies variables to ADIOS buffers but does not write them until PerformPuts is executed. In sync mode data is copied to an ADIOS buffer at every put, in deferred mode, pointers to the data are being saved at every put and the data copied durint the `PerformPuts` function. 
 
 The `BeginStep` function clears all the deferred variables.
 
@@ -93,9 +93,9 @@ The two different types of Write and differentiate by different Put functions in
 ```
 During Put, the current step is recorded.
 
-The `EndStep` function perform puts if there are any deferred variables, serializes the data and flushes.
+The `EndStep` function perform puts if there are any deferred variables that have not been copied, serializes the data and flushes.
 Flushing the data is done at certain steps (`currentStep % flushStepsCount == `) and it includes serializing the data,
-write data or write the aggregate data, reseting the buffer and write the metadata in both files (`md.0` and `md.idx`).
+write data or write the aggregate data to the `.data` files, reseting the buffer and write the metadata in both files (`md.0` and `md.idx`).
 At the end the current step is advanced.
 
 ```
@@ -118,6 +118,8 @@ The aggregated metadata is afterwards written by the `WriteFiles` function defin
 
 At the end, `BP4Writer::PopulateMetadataIndexFileContent` adds information about the current step in the metadata index buffer.
 All the buffers storing data and metadata are reset for the next step.
+
+All functions responsible with writing data or metadata to bp files call the `Write` function inside the corresponding transport class. For the BP4 engine, the transport is `file` implemented in `/source/adios2/toolkit/transport/file/FilePOSIX.*`.
 
 **Closing the files**
 

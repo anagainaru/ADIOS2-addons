@@ -141,7 +141,7 @@ int main(int argc, char*argv[])
 		  Kokkos::HostSpace{}, kokkos_buf);
   cpu_to_storage(writef_cpu, (void *) cpu_buf.data());
   auto end = std::chrono::steady_clock::now();
-  std::chrono::duration<double> elapsed_seconds = end-start;
+  elapsed_seconds = end-start;
   std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << "s\n";
 
   // Compare file signatures

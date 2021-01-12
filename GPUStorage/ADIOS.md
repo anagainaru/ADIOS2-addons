@@ -1,6 +1,10 @@
 # Changes to the ADIOS2 library 
 
-In order to allow code to call `adios2::IO::Put` using GPU buffers, the ADIOS library requires a few modifications.
+Changes to the ADIOS library follow the diagram below
+
+!(ADIOS workflow)[docs/ADIOS_GDS.png]
+
+In order to allow the application code to call `adios2::IO::Put` using GPU buffers, the ADIOS library requires several new classes and changes to the cmake files.
 
 **Compile ADIOS with Cuda enabled**
 

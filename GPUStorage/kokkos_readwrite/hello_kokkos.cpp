@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <iterator>
+#include <chrono>
 
 // needed by cuFile
 #include "cufile.h"
@@ -128,10 +129,20 @@ int main(int argc, char*argv[])
   void *gpumem_buf = (void *) kokkos_buf.data();
 
   storage_to_gpu(readf, gpumem_buf);
+
+  auto start = std::chrono::steady_clock::now(); 
+  gpu_to_storage(writef, gpumem_buf);
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "GDS write time: " << elapsed_seconds.count() << "s\n";
+  
+  auto start = std::chrono::steady_clock::now(); 
   auto cpu_buf = Kokkos::create_mirror_view_and_copy(
 		  Kokkos::HostSpace{}, kokkos_buf);
-  gpu_to_storage(writef, gpumem_buf);
   cpu_to_storage(writef_cpu, (void *) cpu_buf.data());
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << "s\n";
 
   // Compare file signatures
   unsigned char iDigest[SHA256_DIGEST_LENGTH];

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
+#include <chrono>
 
 // needed by cuFile
 #include "cufile.h"
@@ -104,11 +105,61 @@ void *storage_to_gpu(const char *file_name)
   return gpumem_buf;
 }
 
+// Write data from CPU memory to a file
+int cpu_to_storage(const char *file_name, void *cpumem_buf)
+{
+  const size_t size = MAX_BUF_SIZE;
+  std::ofstream outfs(file_name);
+  outfs.write((char *) cpumem_buf, size);
+  cout << "CPU Writing memory of size :" << size << std::endl;
+  return 0;
+}
+
 int main(int argc, char*argv[])
 {
+  // read data to GPU memory
   const char *readf = "/mnt/nvme/read.dat";
   const char *writef = "/mnt/nvme/write.dat";
+  const char *writef_cpu = "/mnt/nvme/write_cpu.dat";
+  const size_t size = MAX_BUF_SIZE;
   void *devPtr = storage_to_gpu(readf);
-  int ret = gpu_to_storage(writef, devPtr);
+  
+  // measure time to write data from GPU directly to storage
+  auto start = std::chrono::steady_clock::now(); 
+  gpu_to_storage(writef, devPtr);
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "GDS write time: " << elapsed_seconds.count() << "s\n";
+
+  // measure time to transfer data to CPU then write it to storage
+  void *hostPtr = malloc(size);
+  auto start = std::chrono::steady_clock::now(); 
+  cudaMemcpy(hostPtr, devPtr, size, cudaMemcpyDeviceToHost);
+  cpu_to_storage(writef_cpu, hostPtr);
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << "s\n";
+
+    // Compare file signatures
+  unsigned char iDigest[SHA256_DIGEST_LENGTH];
+  unsigned char oDigest[SHA256_DIGEST_LENGTH], coDigest[SHA256_DIGEST_LENGTH];
+  int ret;
+  SHASUM256(readf, iDigest, size);
+  DumpSHASUM(iDigest);
+
+  SHASUM256(writef, oDigest, size);
+  DumpSHASUM(oDigest);
+
+  SHASUM256(writef_cpu, coDigest, size);
+  DumpSHASUM(coDigest);
+
+  if ((memcmp(iDigest, oDigest, SHA256_DIGEST_LENGTH) != 0) ||
+      (memcmp(iDigest, coDigest, SHA256_DIGEST_LENGTH) != 0)) {
+	std::cerr << "SHA SUM Mismatch" << std::endl;
+	ret = -1;
+  } else {
+	std::cout << "SHA SUM Match" << std::endl;
+	ret = 0;
+  }
   return ret;
 }

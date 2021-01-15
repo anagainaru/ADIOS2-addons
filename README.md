@@ -1,6 +1,6 @@
 # ADIOS2 First steps
 
-<img src="https://github.com/anagainaru/ADIOS2-addons/logo.png" align="right" alt="Logo" width="350"/>
+<img src="logo.png" align="right" alt="Logo" width="350"/>
 
 [[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
 

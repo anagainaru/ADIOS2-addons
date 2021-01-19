@@ -11,10 +11,10 @@
 
 using namespace std;
 
-#define MAX_BUF_SIZE (31 * 1024 * 1024UL)
+#define MAX_BUF_SIZE (1024 * 1024UL)
 
-int gpu_to_storage(const char *file_name, void *gpumem_buf){
-  const size_t size = MAX_BUF_SIZE;
+int gpu_to_storage(const char *file_name, void *gpumem_buf, int mb){
+  const size_t size = MAX_BUF_SIZE * mb;
   int fd = open(file_name, O_CREAT | O_RDWR | O_DIRECT, 0664);
 if (fd < 0) {
   std::cerr << "write file open error : " << std::strerror(errno)
@@ -54,10 +54,10 @@ if (fd < 0) {
   return 0;
 }
 
-void *storage_to_gpu(const char *file_name)
+void *storage_to_gpu(const char *file_name, int mb)
 {
-  int device_id = 3;
-  const size_t size = MAX_BUF_SIZE;
+  int device_id = 1;
+  const size_t size = MAX_BUF_SIZE * mb;
   check_cudaruntimecall(cudaSetDevice(device_id));
   int fd = open(file_name, O_RDONLY | O_DIRECT);
   if (fd < 0) {
@@ -106,9 +106,9 @@ void *storage_to_gpu(const char *file_name)
 }
 
 // Write data from CPU memory to a file
-int cpu_to_storage(const char *file_name, void *cpumem_buf)
+int cpu_to_storage(const char *file_name, void *cpumem_buf, int mb)
 {
-  const size_t size = MAX_BUF_SIZE;
+  const size_t size = MAX_BUF_SIZE * mb;
   std::ofstream outfs(file_name);
   outfs.write((char *) cpumem_buf, size);
   cout << "CPU Writing memory of size :" << size << std::endl;
@@ -117,28 +117,29 @@ int cpu_to_storage(const char *file_name, void *cpumem_buf)
 
 int main(int argc, char*argv[])
 {
+  int mb = 31;
   // read data to GPU memory
   const char *readf = "/mnt/nvme/read.dat";
   const char *writef = "/mnt/nvme/write.dat";
   const char *writef_cpu = "/mnt/nvme/write_cpu.dat";
-  const size_t size = MAX_BUF_SIZE;
-  void *devPtr = storage_to_gpu(readf);
+  const size_t size = MAX_BUF_SIZE * mb;
+  void *devPtr = storage_to_gpu(readf, mb);
   
   // measure time to write data from GPU directly to storage
   auto start = std::chrono::steady_clock::now(); 
-  gpu_to_storage(writef, devPtr);
+  gpu_to_storage(writef, devPtr, mb);
   auto end = std::chrono::steady_clock::now();
   std::chrono::duration<double> elapsed_seconds = end-start;
-  std::cout << "GDS write time: " << elapsed_seconds.count() << "s\n";
+  std::cout << "GDS write time: " << elapsed_seconds.count() << " s\n";
 
   // measure time to transfer data to CPU then write it to storage
   void *hostPtr = malloc(size);
-  auto start = std::chrono::steady_clock::now(); 
+  start = std::chrono::steady_clock::now(); 
   cudaMemcpy(hostPtr, devPtr, size, cudaMemcpyDeviceToHost);
-  cpu_to_storage(writef_cpu, hostPtr);
-  auto end = std::chrono::steady_clock::now();
-  std::chrono::duration<double> elapsed_seconds = end-start;
-  std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << "s\n";
+  cpu_to_storage(writef_cpu, hostPtr, mb);
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end-start;
+  std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << " s\n";
 
     // Compare file signatures
   unsigned char iDigest[SHA256_DIGEST_LENGTH];

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <iterator>
+#include <chrono>
 
 // needed by cuFile
 #include "cufile.h"
@@ -13,11 +14,11 @@
 
 using namespace std;
 
-#define MAX_BUF_SIZE (31 * 1024 * 1024UL)
+#define MAX_BUF_SIZE (1024 * 1024UL)
 
 // Write data from GPU memory to a file
-int gpu_to_storage(const char *file_name, void *gpumem_buf){
-  const size_t size = MAX_BUF_SIZE;
+int gpu_to_storage(const char *file_name, void *gpumem_buf, int mb){
+  const size_t size = MAX_BUF_SIZE * mb;
   int fd = open(file_name, O_CREAT | O_RDWR | O_DIRECT, 0664);
 if (fd < 0) {
   std::cerr << "write file open error : " << std::strerror(errno)
@@ -55,9 +56,9 @@ if (fd < 0) {
 }
 
 // Read data from NVME directly to the GPU memory space 
-int storage_to_gpu(const char *file_name, void * gpumem_buf)
+int storage_to_gpu(const char *file_name, void * gpumem_buf, int mb)
 {
-  const size_t size = MAX_BUF_SIZE;
+  const size_t size = MAX_BUF_SIZE * mb;
   int fd = open(file_name, O_RDONLY | O_DIRECT);
   if (fd < 0) {
     std::cerr << "read file open error : " << file_name << " "
@@ -100,9 +101,9 @@ int storage_to_gpu(const char *file_name, void * gpumem_buf)
 }
 
 // Write data from CPU memory to a file
-int cpu_to_storage(const char *file_name, void *cpumem_buf)
+int cpu_to_storage(const char *file_name, void *cpumem_buf, int mb)
 {
-  const size_t size = MAX_BUF_SIZE;
+  const size_t size = MAX_BUF_SIZE * mb;
   std::ofstream outfs(file_name);
   outfs.write((char *) cpumem_buf, size);
   cout << "CPU Writing memory of size :" << size << std::endl;
@@ -111,27 +112,38 @@ int cpu_to_storage(const char *file_name, void *cpumem_buf)
 
 int main(int argc, char*argv[])
 {
+  int mb = 31;
   const char *readf = "/mnt/nvme/read.dat";
   const char *writef = "/mnt/nvme/write.dat";
   const char *writef_cpu = "/mnt/nvme/write_cpu.dat";
   
   // Initialize Kokkos to run on GPU with id 3
-  int ret, device_id = 3;
+  int ret, device_id = 1;
   Kokkos::InitArguments args;
   args.device_id = device_id;
   Kokkos::ScopeGuard gds(args);
 
   // Read data into GPU memory then write it to NVME
   // twice using the GPU and CPU
-  const size_t size = MAX_BUF_SIZE;
+  const size_t size = MAX_BUF_SIZE * mb;
   Kokkos::View<char*> kokkos_buf( "gpu_buffer", size );
   void *gpumem_buf = (void *) kokkos_buf.data();
 
-  storage_to_gpu(readf, gpumem_buf);
+  storage_to_gpu(readf, gpumem_buf, mb);
+
+  auto start = std::chrono::steady_clock::now(); 
+  gpu_to_storage(writef, gpumem_buf, mb);
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end-start;
+  std::cout << "GDS write time: " << elapsed_seconds.count() << " s\n";
+  
+  start = std::chrono::steady_clock::now(); 
   auto cpu_buf = Kokkos::create_mirror_view_and_copy(
 		  Kokkos::HostSpace{}, kokkos_buf);
-  gpu_to_storage(writef, gpumem_buf);
-  cpu_to_storage(writef_cpu, (void *) cpu_buf.data());
+  cpu_to_storage(writef_cpu, (void *) cpu_buf.data(), mb);
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end-start;
+  std::cout << "Copy to CPU and write time: " << elapsed_seconds.count() << " s\n";
 
   // Compare file signatures
   unsigned char iDigest[SHA256_DIGEST_LENGTH];

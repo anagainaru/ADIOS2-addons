@@ -8,12 +8,38 @@ In order to allow the application code to call `adios2::IO::Put` using GPU buffe
 
 ## Code changes
 
-### Create a new transport for GPU direct
+List of files that require changes in ADIOS:
+1. New transport for GPUDirect
+```
+    source/adios2/toolkit/transport/gpu/GPUdirect.cpp
+    source/adios2/toolkit/transport/gpu/GPUdirect.h
+```
+2. Utility functions for the new transport
+```
+    source/adios2/toolkit/format/bp/BPBase.cpp
+    source/adios2/toolkit/format/bp/BPBase.h
+    source/adios2/toolkit/format/bp/bp4/BP4Base.cpp
+    source/adios2/toolkit/format/bp/bp4/BP4Base.h
+```
+3. Changes in the File Engine
+```
+    source/adios2/engine/bp4/BP4Writer.cpp
+    source/adios2/engine/bp4/BP4Writer.h
+```
+4. Compiling
+```
+   examples/CMakeLists.txt
+   source/adios2/CMakeLists.txt
+```
+
+Each bullet is described bellow.
+
+### 1. Create a new transport for GPU direct
 
 The transport is implemented in the `GPUdirect.*` files from `source/adios2/toolkit/transport/gpu/`.
 The files are also uploaded in this repo in `adios/transport`.
 
-### Util functions to use the transport
+### 2. Utility functions for the new transport
 
 **Functions for returning the name of the bp gpu files**
 
@@ -57,7 +83,9 @@ The `m_RankGPU` will be added in `source/adios2/toolkit/format/bp/BPBase.*`.
     #endif
 ```
 
-## Compiling
+### 3. Changes in the File Engine
+
+## 4. Compiling
 
 **Compile ADIOS with Cuda enabled**
 

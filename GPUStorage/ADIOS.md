@@ -6,6 +6,59 @@ Changes to the ADIOS library follow the diagram below
 
 In order to allow the application code to call `adios2::IO::Put` using GPU buffers, the ADIOS library requires several new classes and changes to the cmake files.
 
+## Code changes
+
+### Create a new transport for GPU direct
+
+The transport is implemented in the `GPUdirect.*` files from `source/adios2/toolkit/transport/gpu/`.
+The files are also uploaded in this repo in `adios/transport`.
+
+### Util functions to use the transport
+
+**Functions for returning the name of the bp gpu files**
+
+Changes inside `ADIOS2/source/adios2/toolkit/format/bp/bp4/BP4Base.*`.
+
+```c++
+std::vector<std::string>
+BP4Base::GetBPGPUFileNames(const std::vector<std::string> &names) const
+    noexcept
+{
+    std::vector<std::string> gpuFileNames;
+    gpuFileNames.reserve(names.size());
+    for (const auto &name : names)
+    {
+        gpuFileNames.push_back(GetBPGPUFileName(name, m_RankMPI, m_RankGPU));
+    }
+    return gpuFileNames;
+}
+
+std::string BP4Base::GetBPGPUFileName(const std::string &name,
+    const size_t indexMPI, const size_t indexGPU) const
+    noexcept
+{
+    const std::string bpName = helper::RemoveTrailingSlash(name);
+    const std::string bpGPUDataRankName(bpName + PathSeparator + "gpu." +
+                                         std::to_string(indexMPI) + "." +
+                                         std::to_string(indexGPU));
+    return bpGPUDataRankName;
+}
+```
+
+Files written through GPU direct will be stored in `<base_name.bp>/gpu.<MPI rank>.<GPU id>`.
+
+**Store the GPU id in a variable**
+
+The `m_RankGPU` will be added in `source/adios2/toolkit/format/bp/BPBase.*`.
+
+```c++
+    #ifdef ADIOS2_HAVE_CUDA
+        cudaGetDevice(&m_RankGPU);
+    #endif
+```
+
+## Compiling
+
 **Compile ADIOS with Cuda enabled**
 
 Add the Cuda compiler checks in `CMakeList.txt` and `DetectOptions.cmake`

@@ -85,6 +85,43 @@ The `m_RankGPU` will be added in `source/adios2/toolkit/format/bp/BPBase.*`.
 
 ### 3. Changes in the File Engine
 
+**3.1 Constructor**
+```
+BP4Writer::BP4Writer(IO &io, const std::string &name, const Mode mode,
+                     helper::Comm comm)
+: Engine("BP4Writer", io, name, mode, std::move(comm)), m_BP4Serializer(m_Comm),
+  m_FileDataManager(m_Comm), m_GPUDataManager(m_Comm),
+  m_FileMetadataManager(m_Comm), m_FileMetadataIndexManager(m_Comm),
+  m_FileDrainer()
+{
+```
+
+**3.2 Initializing the transports**
+
+Inside the BP4Writer class in the initTransports function, the gpu files need to be opened.
+
+```c++
+        m_GPUStreamNames = m_BP4Serializer.GetBPGPUFileNames(transportsNames);
+        
+        ...
+        
+        #ifdef ADIOS2_HAVE_CUDA
+            Params defaultTransportParameters;
+            defaultTransportParameters["transport"] = "GPU";
+            std::vector<Params> tempTransportsParameters.push_back(
+                            defaultTransportParameters);
+            m_GPUDataManager.OpenFiles(m_GPUStreamNames, m_OpenMode,
+                                       m_IO.m_TransportsParameters,
+                                       m_BP4Serializer.m_Profiler.m_IsActive);
+        #endif
+```
+
+The OpenFiles function inside Transportman needs to change to allow GPU libraries.
+
+**3.3 Detect if the buffer sent by the user is in GPU memeory space**
+
+**3.4 Write data usung GPUdirect**
+
 ## 4. Compiling
 
 **Compile ADIOS with Cuda enabled**

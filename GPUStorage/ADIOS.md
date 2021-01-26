@@ -36,8 +36,20 @@ Each bullet is described bellow.
 
 ### 1. Create a new transport for GPU direct
 
-The transport is implemented in the `GPUdirect.*` files from `source/adios2/toolkit/transport/gpu/`.
-The files are also uploaded in this repo in `adios/transport`.
+**Files available in this repo in `adios/transport`.**
+
+The transport is implemented in the `GPUdirect.*` files from `source/adios2/toolkit/transport/gpu/`. The code implements the open, read, write and close functions for direct access between GPU and storage (in the exact same way it's being used in the examples in this repo).
+
+Add the new files to the libraries compiled in the `adios2_core` target (in `source/adios2/CMakeLists.txt`):
+```
+if(ADIOS2_HAVE_CUDA)
+  set(adios2_core_sources ${adios2_core_sources}
+    toolkit/transport/gpu/GPUdirect.cpp
+  )
+endif()
+
+add_library(adios2_core "${adios2_core_sources}")
+```
 
 ### 2. Utility functions for the new transport
 
@@ -122,11 +134,12 @@ The OpenFiles function inside Transportman needs to change to allow GPU librarie
 
 **3.4 Write data usung GPUdirect**
 
+
 ## 4. Compiling
 
-**Compile ADIOS with Cuda enabled**
+### 4.1 Add CUDA package to cmake when ADIOS detects the CUDA compiler
 
-Add the Cuda compiler checks in `CMakeList.txt` and `DetectOptions.cmake`
+Add the Cuda compiler checks in `{ADIOS_ROOT}/CMakeList.txt`:
 - Add an option to have Cuda `adios_option(CUDA "Enable support for Cuda" AUTO)`
 - Add Cuda when setting the Config options in `ADIOS2_CONFIG_OPTS`
 - Print information about the Cuda compiler
@@ -137,7 +150,7 @@ if(ADIOS2_HAVE_CUDA)
 endif()
 ```
 
-If the Cuda compiler is found, find the cmake package for it in `cmake/DetectOptions.cmake`
+If the Cuda compiler is found, find the cmake package for it in `{ADIOS_ROOT}/cmake/DetectOptions.cmake`
 ```
 if(ADIOS2_USE_CUDA STREQUAL AUTO)
   find_package(CUDA)
@@ -149,11 +162,13 @@ if(CUDA_FOUND)
 endif()
 ```
 
-**Check for GPU buffers inside ADIOS**
+### 4.2. Compile ADIOS with CUDA and CuFile enabled
 
-If Cuda is enabled, the ADIOS library will check if the buffer provided by the user is in GPU or CPU space. This can be done in the `Put` function implemented in `source/adios2/core/Engine.tcc` or when the buffered is copied to the adios buffer.
+**File available in this repo in `adios/compile`.**
 
-In the corresponding `CmakeLists.txt` file the link to the Cuda compiler needs to be added
+Add the libraries and include directories for Cuda and CuFile in `{ADIOS_ROOT}/source/adios2/CmakeLists.txt`.
+
+For CUDA the link to the Cuda compiler needs to be added:
 ```
 if(ADIOS2_HAVE_CUDA)
   target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
@@ -161,4 +176,13 @@ if(ADIOS2_HAVE_CUDA)
 endif()
 ```
 
+For CuFile, we manually add the libraries required by GDS (installed by following the steps [here](./README.md):
+```
+if(ADIOS2_HAVE_CUDA)
+   target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS} /usr/local/cuda-11.1/targets/x86_64-linux/lib/)
+   target_link_directories(adios2_core PUBLIC /usr/local/cuda-11.1/targets/x86_64-linux/l
+ib/)
+   target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES} -lcufile)
+endif()
+```
 

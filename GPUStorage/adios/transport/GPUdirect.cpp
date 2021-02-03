@@ -2,10 +2,10 @@
  * Distributed under the OSI-approved Apache License, Version 2.0.  See
  * accompanying file Copyright.txt for details.
  *
- * FileDescriptor.cpp file I/O using POSIX I/O library
+ * File I/O using the GPU Direct library in CUDA (cuFile)
  *
- *  Created on: Oct 6, 2016
- *      Author: William F Godoy godoywf@ornl.gov
+ *  Created on: Jan 25, 2021
+ *      Author: Ana Gainaru gainarua@ornl.gov
  */
 #include "GPUdirect.h"
 
@@ -32,207 +32,106 @@ GPUdirect::GPUdirect(helper::Comm const &comm)
 : Transport("File", "GPU", comm)
 {
    // TODO: move from here to IO parameters
-   const size_t device_id = 3;
+   const size_t device_id = 1;
    cudaSetDevice(device_id);
+   cudaGetDevice(&m_RankGPU);
 }
 
 GPUdirect::~GPUdirect()
 {
-    if (m_IsOpen)
-    {
-        close(m_FileDescriptor);
-    }
-}
-
-void GPUdirect::WaitForOpen()
-{
-    if (m_IsOpening)
-    {
-        if (m_OpenFuture.valid())
-        {
-            m_FileDescriptor = m_OpenFuture.get();
-        }
-        m_IsOpening = false;
-        CheckFile("couldn't open file " + m_Name + ", in call to GDS open");
-        m_IsOpen = true;
-    }
+    close(m_FileDescriptor);
 }
 
 void GPUdirect::Open(const std::string &name, const Mode openMode,
                      const bool async)
 {
+    m_IsOpen = false;
     // when delete this, delete include iostream as well
-    std::cout << "GPU open file" << name << std::endl;
-    auto lf_AsyncOpenWrite = [&](const std::string &name) -> int {
-        ProfilerStart("open");
-        errno = 0;
-
-        int FD = open(m_Name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0666);
-        m_Errno = errno;
-        ProfilerStop("open");
-        return FD;
-    };
+    std::string fname = name + "." + std::to_string(m_RankGPU);
 
     CUfileError_t status;
     CUfileDescr_t desc;
     memset((void *)&desc, 0, sizeof(CUfileDescr_t));
-    int m_FileDescriptor = open(name.c_str(), O_CREAT | O_RDWR | O_DIRECT, 0664);
+    m_FileDescriptor = open(fname.c_str(), O_CREAT | O_RDWR | O_DIRECT, 0664);
 
-/*
-    m_Name = name;
-    CheckName();
-    m_OpenMode = openMode;
-    switch (m_OpenMode)
-    {
-
-    case (Mode::Write):
-        if (async)
-        {
-            m_IsOpening = true;
-            m_OpenFuture =
-                std::async(std::launch::async, lf_AsyncOpenWrite, name);
-        }
-        else
-        {
-            ProfilerStart("open");
-            errno = 0;
-            m_FileDescriptor =
-                open(m_Name.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT, 0666);
-            m_Errno = errno;
-            ProfilerStop("open");
-        }
-        break;
-
-    case (Mode::Read):
-        ProfilerStart("open");
-        errno = 0;
-        m_FileDescriptor = open(m_Name.c_str(), O_RDONLY | O_DIRECT);
-        m_Errno = errno;
-        ProfilerStop("open");
-        break;
-
-    default:
-        CheckFile("unknown open mode for file " + m_Name +
-                  ", in call to POSIX open");
-    }
-
-    if (!m_IsOpening)
-    {
-        CheckFile("couldn't open file " + m_Name + ", in call to GDS open");
-        m_IsOpen = true;
-    }
-*/
     desc.handle.fd = m_FileDescriptor;
     desc.type = CU_FILE_HANDLE_TYPE_OPAQUE_FD;
     status = cuFileHandleRegister(&m_GPUFileHandler, &desc);
     if (status.err != CU_FILE_SUCCESS) {
-        CheckFile("error registering file " + m_Name + ", in call to GDP write");
-        return;
+	std::cout << "WARNING! Could not register file " << m_Name
+		  << "in call to GDS open. GPU buffers will be ignored" << std::endl;
+	return;
     }
+
+    m_IsOpen = true;
 }
 
 void GPUdirect::Write(const char *buffer, size_t size, size_t start)
 {
-    auto lf_Write = [&](const char *buffer, size_t size) {
-        while (size > 0)
-        {
-            ProfilerStart("write");
-            errno = 0;
-            const auto writtenSize = cuFileWrite(
-			   m_GPUFileHandler, (void *) buffer, size, 0, 0);
-            m_Errno = errno;
-            ProfilerStop("write");
-
-            if (writtenSize == -1)
-            {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-
-                throw std::ios_base::failure(
-                    "ERROR: couldn't write to file " + m_Name +
-                    ", in call to GDS Write" + SysErrMsg());
-            }
-
-            buffer += writtenSize;
-            size -= writtenSize;
-        }
+    auto lf_Write = [&](const char *buffer, size_t size,
+		    size_t fileOffset, size_t bufferOffset){
+	errno = 0;
+	int ret = cuFileWrite(m_GPUFileHandler, buffer,
+			      size, fileOffset, bufferOffset);
+	m_Errno = errno;
+	if (ret < 0){
+	    throw std::ios_base::failure(
+		    "ERROR: couldn't write to file " + m_Name +
+		    ", in call to GDS Write" + SysErrMsg());
+	}
     };
 
-    WaitForOpen();
+    if (not m_IsOpen)
+    {
+	std::cout << "WARNING! Skipping writing buffer from the GPU"
+		  << " memory space" << std::endl;
+	return;
+    }
+
+    size_t fileOffset = m_FileOffset;
+    if (start != MaxSizeT)
+	fileOffset = start;
+
     if (size > DefaultMaxFileBatchSize)
     {
-        const size_t batches = size / DefaultMaxFileBatchSize;
+	const size_t batches = size / DefaultMaxFileBatchSize;
         const size_t remainder = size % DefaultMaxFileBatchSize;
 
-        size_t position = 0;
+	size_t position = 0;
         for (size_t b = 0; b < batches; ++b)
         {
-            lf_Write(&buffer[position], DefaultMaxFileBatchSize);
+            lf_Write(buffer, DefaultMaxFileBatchSize, fileOffset, position);
             position += DefaultMaxFileBatchSize;
+	    fileOffset += DefaultMaxFileBatchSize;
         }
-        lf_Write(&buffer[position], remainder);
+        lf_Write(buffer, remainder, fileOffset, position);
     }
     else
     {
-        lf_Write(buffer, size);
+        lf_Write(buffer, size, fileOffset, 0);
     }
+
+    m_FileOffset += size;
+
 }
 
 void GPUdirect::Read(char *buffer, size_t size, size_t start)
 {
-    auto lf_Read = [&](char *buffer, size_t size) {
-        while (size > 0)
-        {
-            ProfilerStart("read");
-            errno = 0;
-	    const auto readSize = cuFileRead(
-			    m_GPUFileHandler, (void *) buffer, size, 0, 0);
-            m_Errno = errno;
-            ProfilerStop("read");
+    if (not m_IsOpen)
+	return;
+    std::cout << "GPU read " << size << " bytes" << std::endl;
 
-            if (readSize == -1)
-            {
-                if (errno == EINTR)
-                {
-                    continue;
-                }
-
-                throw std::ios_base::failure(
-                    "ERROR: couldn't read from file " + m_Name +
-                    ", in call to GDS IO read" + SysErrMsg());
-            }
-
-            buffer += readSize;
-            size -= readSize;
-        }
-    };
-
-    WaitForOpen();
-    if (size > DefaultMaxFileBatchSize)
-    {
-        const size_t batches = size / DefaultMaxFileBatchSize;
-        const size_t remainder = size % DefaultMaxFileBatchSize;
-
-        size_t position = 0;
-        for (size_t b = 0; b < batches; ++b)
-        {
-            lf_Read(&buffer[position], DefaultMaxFileBatchSize);
-            position += DefaultMaxFileBatchSize;
-        }
-        lf_Read(&buffer[position], remainder);
-    }
-    else
-    {
-        lf_Read(buffer, size);
-    }
+    m_Errno = cuFileRead(m_GPUFileHandler, (void *) buffer,
+		         size, 0, 0);
+    if (m_Errno < 0)
+        throw std::ios_base::failure(
+	    "ERROR: couldn't read from file " + m_Name +
+	    ", in call to GDS IO read" + SysErrMsg());
 }
 
 size_t GPUdirect::GetSize()
 {
     struct stat fileStat;
-    WaitForOpen();
     errno = 0;
     if (fstat(m_FileDescriptor, &fileStat) == -1)
     {
@@ -248,14 +147,13 @@ void GPUdirect::Flush() {}
 
 void GPUdirect::Close()
 {
-    WaitForOpen();
-    ProfilerStart("close");
+    if (not m_IsOpen)
+	return;
+    
     errno = 0;
-    const int status = close(m_FileDescriptor);
     cuFileHandleDeregister(m_GPUFileHandler);
+    const int status = close(m_FileDescriptor);
     m_Errno = errno;
-    ProfilerStop("close");
-
     if (status == -1)
     {
         throw std::ios_base::failure("ERROR: couldn't close file " + m_Name +
@@ -264,11 +162,11 @@ void GPUdirect::Close()
     }
 
     m_IsOpen = false;
+    m_FileOffset = 0;
 }
 
 void GPUdirect::Delete()
 {
-    WaitForOpen();
     if (m_IsOpen)
     {
         Close();
@@ -284,18 +182,20 @@ void GPUdirect::CheckFile(const std::string hint) const
     }
 }
 
-std::string GPUdirect::SysErrMsg() const
-{
-    return std::string(": errno = " + std::to_string(m_Errno) + ": " +
-                       strerror(m_Errno));
-}
-
 void GPUdirect::SeekToEnd()
 {
+    m_FileOffset = GetSize();
 }
 
 void GPUdirect::SeekToBegin()
 {
+    m_FileOffset = 0;
+}
+
+std::string GPUdirect::SysErrMsg() const
+{
+    return std::string(": errno = " + std::to_string(m_Errno) + ": " +
+                       strerror(m_Errno));
 }
 
 } // end namespace transport

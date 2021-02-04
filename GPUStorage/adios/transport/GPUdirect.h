@@ -2,10 +2,10 @@
  * Distributed under the OSI-approved Apache License, Version 2.0.  See
  * accompanying file Copyright.txt for details.
  *
- * FileDescriptor.h wrapper of POSIX library functions for file I/O
+ * File I/O using the GPU Direct library in CUDA (cuFile)
  *
- *  Created on: Oct 6, 2016
- *      Author: William F Godoy godoywf@ornl.gov
+ *  Created on: Jan 25, 2021
+ *      Author: Ana Gainaru gainarua@ornl.gov
  */
 
 #ifndef ADIOS2_TOOLKIT_TRANSPORT_FILE_GPU_H_

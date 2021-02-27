@@ -133,6 +133,8 @@ BP4 File structure:
   - `md.0`: file with metadata information for all variables (`global.md` in BP3)
   - `data.0`, `data.aggregation_step`, ..., `data.N`: data files, incorporating metadata interspersed with the data object
 
+![Metadata format](docs/adios_metadata.png)
+
 ## Debugging ADIOS
 
 Build ADIOS with the `-DCMAKE_BUILD_TYPE=DEBUG` flag.<br/>

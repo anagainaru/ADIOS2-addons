@@ -4,8 +4,8 @@ Steps from initialization to performing I/O operations, description of the buffe
 The BP4 engine is a file engine and uses POSIX functions underneath.
 
 Sections in this document: <br/>
-<a href="#Buffer Headers" /> Workflow </a> <br/>
-<a href="#Buffer Headers" /> Metadata </a> <br/>
+<a href="#Workflow" /> Workflow </a> <br/>
+<a href="#Metadata" /> Metadata </a> <br/>
 
 ## WRITE
 

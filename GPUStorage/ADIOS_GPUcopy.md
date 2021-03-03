@@ -93,14 +93,14 @@ index f2540258c..38aa06353 100644
 +    #ifdef ADIOS2_HAVE_CUDA
 +        size_t count = helper::GetTotalSize(variable.Count());
 +        std::vector<T> hostData(count);
-+	    cudaPointerAttributes attributes;
-+	    cudaPointerGetAttributes(&attributes, (const void *) data);
-+	    if(attributes.devicePointer != NULL){
-+	        // if the buffer is on GPU memory copy it to the CPU
-+	        cudaMemcpy(hostData.data(), data, count * sizeof(T),
-+		           cudaMemcpyDeviceToHost);
-+	        data = hostData.data();
-+	    }
++	       cudaPointerAttributes attributes;
++	       cudaPointerGetAttributes(&attributes, (const void *) data);
++	       if(attributes.devicePointer != NULL){
++	           // if the buffer is on GPU memory copy it to the CPU
++	           cudaMemcpy(hostData.data(), data, count * sizeof(T),
++		                     cudaMemcpyDeviceToHost);
++	           data = hostData.data();
++	       }
 +    #endif
 +
      CommonChecks(variable, data, {{Mode::Write, Mode::Append}},
@@ -121,7 +121,6 @@ index 2b3a84447..b1f90830f 100644
 +if(ADIOS2_HAVE_CUDA)
 +  target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
 +  target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
-+  #message (FATAL_ERROR "${CUDA_LIBRARIES}")
 +endif()
 +
  target_include_directories(adios2_core
@@ -156,10 +155,8 @@ new file mode 100644
 +  #include <cuda.h>
 +  #include <cuda_runtime.h>
 +
-+ __global__ void change_array(int *vect, int N, int val) {
-+    int i;
-+    for(i = 0; i < N; i++)
-+       vect[i] += val;
++ __global__ void update_array(int *vect, int val) {
++    vect[blockIdx.x] += val;
 + }
 @@ -7,6 +7,7 @@
 + float *gpuSimData;
@@ -170,5 +167,5 @@ new file mode 100644
 + bpWriter.BeginStep();
 +	bpWriter.Put(data, gpuSimData);
 + bpWriter.EndStep();
-+ change_array<<<1,N>>>(gpuSimData, N, 1);
++ update_array<<<N,1>>>(gpuSimData, 1);
 ```

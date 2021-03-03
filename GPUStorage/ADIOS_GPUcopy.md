@@ -7,7 +7,8 @@ Currently only Cuda is supported.
 
 ## Detect the CUDA environment
 
-Changes in `${ADIOS_ROOT}/CMakeLists` and `${ADIOS_ROOT}/cmake/DetectOptions.cmake`.
+Changes in `${ADIOS_ROOT}/CMakeLists` and `${ADIOS_ROOT}/cmake/DetectOptions.cmake` to detect the Cuda compiler during build.
+
 ```diff
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 5d327a8ba..458ef87c8 100644
@@ -106,6 +107,8 @@ index f2540258c..38aa06353 100644
                   "in call to Put");
 ```
 
+The ADIOS code needs to be liked to Cuda.
+
 ```diff
 diff --git a/source/adios2/CMakeLists.txt b/source/adios2/CMakeLists.txt
 index 2b3a84447..b1f90830f 100644
@@ -116,9 +119,8 @@ index 2b3a84447..b1f90830f 100644
  set_property(TARGET adios2_core PROPERTY OUTPUT_NAME adios2${ADIOS2_LIBRARY_SUFFIX}_core)
  
 +if(ADIOS2_HAVE_CUDA)
-+  target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS} /usr/local/cuda-11.1/targets/x86_64-linux/lib/)
-+  target_link_directories(adios2_core PUBLIC /usr/local/cuda-11.1/targets/x86_64-linux/lib/)
-+  target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES} -lcufile)
++  target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
++  target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
 +  #message (FATAL_ERROR "${CUDA_LIBRARIES}")
 +endif()
 +
@@ -129,6 +131,8 @@ index 2b3a84447..b1f90830f 100644
 
 ## Add an example using GPU buffers
 
+The example will be included in `${ADIOS_ROOT}/examples/gpu`
+
 ```diff
 diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
 index 77f5a3844..50a8f29a4 100644
@@ -136,7 +140,7 @@ index 77f5a3844..50a8f29a4 100644
 +++ b/examples/CMakeLists.txt
 @@ -7,6 +7,7 @@ add_subdirectory(basics)
  add_subdirectory(useCases)
-+add_subdirectory(gpuDirect)
++add_subdirectory(gpu)
  
  if(ADIOS2_HAVE_MPI)
    add_subdirectory(heatTransfer)
@@ -145,19 +149,26 @@ index 77f5a3844..50a8f29a4 100644
 The example is similar to the `bpRead`, `bpWrite` examples, except it uses buffers allocated on the GPU and kernels for computations.
 
 ```diff
-diff --git a/examples/gpuDirect/bpWriteRead.cpp b/examples/gpuDirect/bpWriteRead.cpp
+diff --git a/examples/gpu/cudaWriteRead.cpp b/examples/gpu/cudaWriteRead.cpp
 new file mode 100644
-+++ b/examples/gpuDirect/bpWriteRead.cpp
++++ b/examples/gpu/cudaWriteRead.cpp
 @@ -0,0 +1,113 @@
 +  #include <cuda.h>
 +  #include <cuda_runtime.h>
 +
-+    float *gpuSimData;
-+    cudaMalloc(&gpuSimData, N);
-+    cudaMemset(gpuSimData, 0, N);
++ __global__ void change_array(int *vect, int N, int val) {
++    int i;
++    for(i = 0; i < N; i++)
++       vect[i] += val;
++ }
+@@ -7,6 +7,7 @@
++ float *gpuSimData;
++ cudaMalloc(&gpuSimData, N);
++ cudaMemset(gpuSimData, 0, N);
 + 
-+        bpWriter.BeginStep();
-+	    bpWriter.Put(data, gpuSimData);
-+        bpWriter.EndStep();
+@@ -17,6 +1,113 @@
++ bpWriter.BeginStep();
++	bpWriter.Put(data, gpuSimData);
++ bpWriter.EndStep();
++ change_array<<<1,N>>>(gpuSimData, N, 1);
 ```
-

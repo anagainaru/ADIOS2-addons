@@ -3,13 +3,13 @@
 Steps from initialization to performing I/O operations, description of the buffers needed and the format of the headers.
 The BP4 engine is a file engine and uses POSIX functions underneath.
 
-TODO, move sections to different files
-<a href="#Buffer Headers" /> Buffer Headers </a> <br/>
-<a href="#Debugging ADIOS" /> Debugging ADIOS </a>
+Sections in this document: <br/>
+<a href="#Buffer Headers" /> Workflow </a> <br/>
+<a href="#Buffer Headers" /> Metadata </a> <br/>
 
-## Workflow
+## WRITE
 
-### Write
+### Workflow
 
 There are three sections in the write workflow: initialization (executed during the IO.Open call), performing puts (executed during the simualtion) and close (executed during IO.Close call).
 
@@ -39,7 +39,7 @@ The `Open` function, initializes a Serializer object and a BP4Writer object and 
       - Transport is set by default to `File`. The function creates the files it will use to write the data (If burst buffers are used the file names contain the path to the BB)
       - In case there is aggregation (not all ranks write files) the `m_BP4Serializer.m_Aggregator.m_IsConsumer` decides which ranks are in charge of writing
       - The BP folder is created and inside the data.rank files are created
-```
+```c++
 m_FileDataManager.OpenFiles(m_SubStreamNames, m_OpenMode,
                             m_IO.m_TransportsParameters,
                             m_BP4Serializer.m_Profiler.m_IsActive);
@@ -58,7 +58,7 @@ The `MakeHeader` function:
 - Adds information about the format of the data (little endian .. )
 - Adds the first `ProcessGroup` block in the data file following the format of the header described in the next section
 
-```
+```c++
     m_BP4Serializer.PutProcessGroupIndex(
         m_IO.m_Name, m_IO.m_HostLanguage,
         m_FileDataManager.GetTransportsTypes());
@@ -66,7 +66,7 @@ The `MakeHeader` function:
 ```
 
 **Writing data to the bp4 files**
-```
+```c++
 - BP4Writer::BeginStep
 - BP4Writer::DoPut
 - BP4Writer::CurrentStep
@@ -79,7 +79,7 @@ The applications calls Put for any number of variables between calls to BeginSte
 The `BeginStep` function clears all the deferred variables.
 
 The two different types of Write and differentiate by different Put functions in the `BP4Writter.cpp` file:
-```
+```c++
 #define declare_type(T)                                                        \
     void BP4Writer::DoPutSync(Variable<T> &variable, const T *data)            \
     {                                                                          \
@@ -98,7 +98,7 @@ Flushing the data is done at certain steps (`currentStep % flushStepsCount == `)
 write data or write the aggregate data to the `.data` files, reseting the buffer and write the metadata in both files (`md.0` and `md.idx`).
 At the end the current step is advanced.
 
-```
+```c++
 - BP4Writer::Flush 
 - BP4Writer::DoFlush
 - BP4Writer::AggregateWriteData
@@ -110,7 +110,7 @@ At the end the current step is advanced.
 The `WriteCollectiveMetadataFile` function aggregates information from all the writing ranks into one metadata file by calling
 `BP4Serializer::AggregateCollectiveMetadata` and `AggregateCollectiveMetadataIndices`.
 The aggregated metadata is afterwards written by the `WriteFiles` function defined in `toolkit/transportman/TransportMan.cpp`:
-```
+```c++
         m_FileMetadataManager.WriteFiles(
             m_BP4Serializer.m_Metadata.m_Buffer.data(),
             m_BP4Serializer.m_Metadata.m_Position);
@@ -125,7 +125,7 @@ All functions responsible with writing data or metadata to bp files call the `Wr
 
 The application calls `IO.Close()` after the simulation is done. The routine in the end, writes out the deferred data and metadata in case EndStep or PerformPuts were not called, writing the index metadata file, close the data, metadata and the metadata index files and erase the engine object from IO.
 
-## Buffer Headers
+## Metadata
 
 BP4 File structure:
 - `outpub.bp` folder containing:
@@ -135,7 +135,7 @@ BP4 File structure:
 
 The metadata file contains data for the process group (which is written for every ADIOS step), the variable and attribute index. The variables holding this data until they are written to disk are located in `format/bp/BPBase.h`:
 
-```
+```c++
     /** contains data buffer for this rank */
     BufferSTL m_Data;
 
@@ -173,35 +173,8 @@ line 734:      PutCharacteristicRecord(characteristic_payload_offset,
 
 Variable x written in a given step is stored in storage in file `data.{rank_id}` starting with offset `{offset_position}` where `offset_position` is the offset in the variable index added with the offset in the process group index; `rank_id` is stored in the process group index. All the additional information needed is set in file `BP4Serializer.cpp`:
 
-```
+```c++
 line 181:      const uint32_t processID = static_cast<uint32_t>(m_RankMPI);
                helper::InsertToBuffer(metadataBuffer, &processID);
 line 196:      helper::InsertU64(metadataBuffer, m_Data.m_AbsolutePosition + m_PreDataFileLength);
 ```
-
-## Debugging ADIOS
-
-Build ADIOS with the `-DCMAKE_BUILD_TYPE=DEBUG` flag.<br/>
-Using VSCode to debug ADIOS, the following `launch.json file` uses llbd to go through the code:
-```json
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "(lldb) Launch",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/build/bin/bpCamWriteRead",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "lldb"
-        }
-    ]
-}
-```
-
-If the process hangs during debugging or even if it successfully ends, there migh still be danggling processes in the background. 
-In order to run another lldb process, these need to be killed: `ps aux | grep lldb` and `kill {pid}`.
-

@@ -133,7 +133,51 @@ BP4 File structure:
   - `md.0`: file with metadata information for all variables (`global.md` in BP3)
   - `data.0`, `data.aggregation_step`, ..., `data.N`: data files, incorporating metadata interspersed with the data object
 
+The metadata file contains data for the process group (which is written for every ADIOS step), the variable and attribute index. The variables holding this data until they are written to disk are located in `format/bp/BPBase.h`:
+
+```
+    /** contains data buffer for this rank */
+    BufferSTL m_Data;
+
+    /** contains collective metadata buffer, only used by rank 0 */
+    BufferSTL m_Metadata;
+
+    /** contains metadata indices */
+    MetadataSet m_MetadataSet;
+```
+
 ![Metadata format](docs/adios_metadata.png)
+
+Every time data is moved from the user buffer to the ADIOS buffer (in `Sync` mode every time there is a `Put`; in `Deferred` mode during `PerformPuts` or at the end of the step).
+```c++
+m_BP4Serializer.PutVariableMetadata(variable, blockInfo, sourceRowMajor);
+m_BP4Serializer.PutVariablePayload(variable, blockInfo, sourceRowMajor);
+```
+The `PutVariablePayload` function calls `PutPayloadInBuffer` and copies the user data to adios buffers. 
+The `PutVariableMetadata` function calls `PutVariableMetadataInIndex` which writes the info related to the variable index in the metadata file. The information is given in the following figure:
+
+![Metadata variable index format](docs/adios_metadata_vi.png)
+
+The characteristics set represents tuples of (metric, value) writen by the `PutVariableCharacteristics` function. One such tuple is the payload offset (where the data starts inside the ADIOS buffer). This value is set in the `BP4Serializer.cpp` file:
+
+```c++
+line 39:       auto lf_SetOffset = [&](uint64_t &offset) {
+                       offset = static_cast<uint64_t>(m_Data.m_Position);
+
+line 67:       lf_SetOffset(stats.PayloadOffset);
+
+line 734:      PutCharacteristicRecord(characteristic_payload_offset,
+                            characteristicsCounter, stats.PayloadOffset,
+                            buffer);
+```
+
+Variable x written in a given step is stored in storage in file `data.{rank_id}` starting with offset `{offset_position}` where `offset_position` is the offset in the variable index added with the offset in the process group index; `rank_id` is stored in the process group index. All the additional information needed is set in file `BP4Serializer.cpp`:
+
+```
+line 181:      const uint32_t processID = static_cast<uint32_t>(m_RankMPI);
+               helper::InsertToBuffer(metadataBuffer, &processID);
+line 196:      helper::InsertU64(metadataBuffer, m_Data.m_AbsolutePosition + m_PreDataFileLength);
+```
 
 ## Debugging ADIOS
 

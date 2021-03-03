@@ -5,18 +5,14 @@
 [[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
 
 **List of projects**
-1. Campaign engine 
-    * Create engine with multiple BP4 engines underneath
-    * `FileEngine` folder
+1. Data streaming
+    * Running streaming engines at scale
 
-```
-git@github.com:anagainaru/ADIOS2.git
-git checkout file_engine
-```
+2. File engine 
+    * Campaign management
   
-2. Adios serializer on CPU 
-    * Reimplement for GPU
-3. Data streaming
+3. ADIOS working with GPU buffers
+    * Write/Read direct from storage
 
 ## Installing ADIOS-2 
 
@@ -123,3 +119,30 @@ $ ./bin/bpls -l myVector_cpp.bp/
   float    bpFloats  {10} = 0 / 9
   int32_t  bpInts    {10} = -9 / 0
 ```
+
+## Debugging ADIOS
+
+Build ADIOS with the `-DCMAKE_BUILD_TYPE=DEBUG` flag.<br/>
+Using VSCode to debug ADIOS, the following `launch.json file` uses llbd to go through the code:
+```json
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(lldb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/bpCamWriteRead",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "lldb"
+        }
+    ]
+}
+```
+
+If the process hangs during debugging or even if it successfully ends, there migh still be danggling processes in the background. 
+In order to run another lldb process, these need to be killed: `ps aux | grep lldb` and `kill {pid}`.
+

@@ -63,7 +63,110 @@ index ca449feee..38c1f9cee 100644
    include(CheckLanguage)
 ```
 
+## Add a copy function from the GPU to the ADIOS buffer
+
+In the ADIOS helper functions that manage memory. For CPU buffers the `CopyToBuffer` function is used to store the data to ADIOS buffers.
+
+```diff
+diff --git a/source/adios2/helper/adiosMemory.h b/source/adios2/helper/adiosMemory.h
+index 9d5e40f..3ed6d01 100644
+--- a/source/adios2/helper/adiosMemory.h
++++ b/source/adios2/helper/adiosMemory.h
+@@ -39,6 +39,15 @@ template <class T>
+ void InsertToBuffer(std::vector<char> &buffer, const T *source,
+                     const size_t elements = 1) noexcept;
+
++#ifdef ADIOS2_HAVE_CUDA
++/*
++ * Copies data from a GPU buffer to a specific location in the adios buffer
++ */
++template <class T>
++void CopyFromGPUToBuffer(std::vector<char> &buffer, size_t &position, const T *source,
++                  const size_t elements = 1) noexcept;
++#endif
++
+ /**
+  * Copies data to a specific location in the buffer updating position
+  * Does not update vec.size().
+```
+The new function `CopyFromGPUToBuffer` is used to copy data from a GPU buffer to a specific location in the adios buffer.
+
+```diff
+diff --git a/source/adios2/helper/adiosMemory.tcc b/source/adios2/helper/adiosMemory.tcc
+index 0e7aede..a2c899a 100644
+--- a/source/adios2/helper/adiosMemory.tcc
++++ b/source/adios2/helper/adiosMemory.tcc
+@@ -15,10 +15,28 @@
+
+ #include "adios2/common/ADIOSMacros.h"
+
++#ifdef ADIOS2_HAVE_CUDA
++  #include <cuda.h>
++  #include <cuda_runtime.h>
++#endif
++
+ namespace adios2
+ {
+ namespace helper
+-{} // end namespace helper
++{
++#ifdef ADIOS2_HAVE_CUDA
++template <class T>
++void CopyFromGPUToBuffer(std::vector<char> &buffer, size_t &position,
++                         const T *source, const size_t elements) noexcept
++{
++    const char *src = reinterpret_cast<const char *>(source);
++    cudaMemcpy(buffer.begin() + position, src, elements * sizeof(T),
++               cudaMemcpyDeviceToHost);
++    position += elements * sizeof(T);
++}
++#endif
++
++} // end namespace helper
+ } // end namespace adios2
+
+ #endif /* ADIOS2_HELPER_ADIOSMEMORY_TCC_ */
+```
+
 ## Detect host/device buffers
+
+```diff
+diff --git a/source/adios2/toolkit/format/bp/BPSerializer.tcc b/source/adios2/toolkit/format/bp/BPSerializer.tcc
+index 8414fa6..4c8ad78 100644
+--- a/source/adios2/toolkit/format/bp/BPSerializer.tcc
++++ b/source/adios2/toolkit/format/bp/BPSerializer.tcc
+@@ -13,6 +13,11 @@
+
+ #include "BPSerializer.h"
+
++#ifdef ADIOS2_HAVE_CUDA
++  #include <cuda.h>
++  #include <cuda_runtime.h>
++#endif
++
+ namespace adios2
+ {
+ namespace format
+@@ -72,6 +77,18 @@ inline void BPSerializer::PutPayloadInBuffer(
+ {
+     const size_t blockSize = helper::GetTotalSize(blockInfo.Count);
+     m_Profiler.Start("memcpy");
++    #ifdef ADIOS2_HAVE_CUDA
++    cudaPointerAttributes attributes;
++    cudaPointerGetAttributes(&attributes, (const void *) blockInfo.Data);
++    if(attributes.devicePointer != NULL){
++       std::cout << "On GPU !!" << std::endl;
++       helper::CopyFromGPUToBuffer(m_Data.m_Buffer, m_Data.m_Position,
++                                   blockInfo.Data, blockSize);
++       m_Profiler.Stop("memcpy");
++       m_Data.m_AbsolutePosition += blockSize * sizeof(T);
++       return;
++    }
++    #endif
+     if (!blockInfo.MemoryStart.empty())
+     {
+         helper::CopyMemoryBlock(
+```
 
 If ADIOS was build with Cuda and the mode is Sync, each buffer submitted to ADIOS is inspected.
 If the buffer was allocated on the device, ADIOS will copy it to host and store the data in its internal buffers.

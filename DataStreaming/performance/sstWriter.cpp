@@ -10,26 +10,43 @@
 
 #include <iostream>
 #include <vector>
+#include <random>    
+#include <algorithm> 
+#include <functional>
+#include <chrono>
 
 #include <adios2.h>
 #include <mpi.h>
 
+std::vector<float> create_random_data(int n) {
+    std::random_device r;
+    std::seed_seq      seed{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::mt19937       eng(seed);
+
+    std::uniform_int_distribution<int> dist;
+    std::vector<float> v(n);
+
+    generate(begin(v), end(v), bind(dist, eng));
+    return v;
+}
+
 int main(int argc, char *argv[])
 {
+    if (argc < 2)
+    {
+        std::cout << "Usage: " << argv[0] << " array_size"
+                  << std::endl;
+        return -1;
+    }
+    const size_t Nx = atoi(argv[1]);
 
     int rank;
     int size;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::vector<float> myFloats = {
-        (float)10.0 * rank + 0, (float)10.0 * rank + 1, (float)10.0 * rank + 2,
-        (float)10.0 * rank + 3, (float)10.0 * rank + 4, (float)10.0 * rank + 5,
-        (float)10.0 * rank + 6, (float)10.0 * rank + 7, (float)10.0 * rank + 8,
-        (float)10.0 * rank + 9};
-    const std::size_t Nx = myFloats.size();
+    auto myFloats = create_random_data(Nx);
 
     try
     {
@@ -44,9 +61,18 @@ int main(int argc, char *argv[])
         // Create engine smart pointer to Sst Engine due to polymorphism,
         // Open returns a smart pointer to Engine containing the Derived class
         adios2::Engine sstWriter = sstIO.Open("helloSst", adios2::Mode::Write);
+        auto start = std::chrono::steady_clock::now();
         sstWriter.BeginStep();
+        auto start_time = std::chrono::system_clock::now();
         sstWriter.Put<float>(bpFloats, myFloats.data());
         sstWriter.EndStep();
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::time_t tt = std::chrono::system_clock::to_time_t(start_time);
+        std::cout << "SST,Write," << rank << ","  << Nx << ","
+                  << elapsed_seconds.count() << ","  
+                  << start_time.time_since_epoch().count() << ","
+                  << ctime(&tt);
         sstWriter.Close();
     }
     catch (std::invalid_argument &e)

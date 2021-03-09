@@ -37,28 +37,33 @@ int main(int argc, char *argv[])
         sstIO.SetEngine("Sst");
 
         adios2::Engine sstReader = sstIO.Open("helloSst", adios2::Mode::Read);
+        auto start = std::chrono::steady_clock::now();
         sstReader.BeginStep();
         adios2::Variable<float> bpFloats =
             sstIO.InquireVariable<float>("bpFloats");
-        std::cout << "Incoming variable is of size " << bpFloats.Shape()[0]
-                  << "\n";
         const std::size_t total_size = bpFloats.Shape()[0];
         const std::size_t my_start = (total_size / size) * rank;
         const std::size_t my_count = (total_size / size);
-        std::cout << "Reader rank " << rank << " reading " << my_count
-                  << " floats starting at element " << my_start << "\n";
-
-        const adios2::Dims start{my_start};
+        const adios2::Dims pos_start{my_start};
         const adios2::Dims count{my_count};
 
-        const adios2::Box<adios2::Dims> sel(start, count);
+        const adios2::Box<adios2::Dims> sel(pos_start, count);
 
         std::vector<float> myFloats;
         myFloats.resize(my_count);
 
         bpFloats.SetSelection(sel);
+        auto start_time = std::chrono::system_clock::now();
         sstReader.Get(bpFloats, myFloats.data());
         sstReader.EndStep();
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::time_t tt = std::chrono::system_clock::to_time_t(start_time);
+        std::cout  << std::endl;
+        std::cout << "SST,Read," << rank << ","  << my_count << ","
+                  << elapsed_seconds.count() << ","
+                  << start_time.time_since_epoch().count() << ","
+                  << ctime(&tt);
 
         sstReader.Close();
     }

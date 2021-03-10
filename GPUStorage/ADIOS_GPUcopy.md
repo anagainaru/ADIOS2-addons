@@ -90,6 +90,31 @@ index 2b3a84447..b1f90830f 100644
      $<BUILD_INTERFACE:${ADIOS2_SOURCE_DIR}/source>
 ```
 
+### Build cuda specific files
+
+Cuda specific files are located in `source/adios2/helper/adiosCUDA.cu`
+
+```diff
+diff --git a/source/adios2/CMakeLists.txt b/source/adios2/CMakeLists.txt
+index 3cc0d4ed2..82a4e8136 100644
+--- a/source/adios2/CMakeLists.txt
++++ b/source/adios2/CMakeLists.txt
+@@ -48,6 +48,7 @@ add_library(adios2_core
+   helper/adiosXML.cpp
++  helper/adiosCUDA.cu
+
+ #engine derived classes
+   engine/bp3/BP3Reader.cpp engine/bp3/BP3Reader.tcc
+@@ -116,8 +117,10 @@ set_property(TARGET adios2_core PROPERTY OUTPUT_NAME adios2${ADIOS2_LIBRARY_SUFFIX}_core)
+
+ if(ADIOS2_HAVE_CUDA)
++  enable_language(CUDA)
+   target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
+   target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
++  set_target_properties(adios2_core PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+ endif()
+```
+
 ## Manage GPU buffers inside ADIOS
 
 ### Detect the GPU buffer
@@ -229,30 +254,89 @@ index f8d450e70..566513755 100644
                    const size_t elements) noexcept
 ```
 
+### Cuda specific functions for metadata management
+
+Comuting min/max for the data in the GPU buffer will be computed on the GPU using reduction functions provided by the CUDA thrust library.
+
+**Include the cuda specific functions in the adiosFunctions header**
+```diff
+diff --git a/source/adios2/helper/adiosFunctions.h b/source/adios2/helper/adiosFunctions.h
+index 49dc629c6..d689ab035 100644
+--- a/source/adios2/helper/adiosFunctions.h
++++ b/source/adios2/helper/adiosFunctions.h
+@@ -20,5 +20,6 @@
+ #include "adios2/helper/adiosType.h"    //Type casting, conversion, checks, etc.
+ #include "adios2/helper/adiosXML.h"     //XML parsing
+ #include "adios2/helper/adiosYAML.h"    //YAML parsing
++#include "adios2/helper/adiosCUDA.h"    //CUDA functions
+
+ #endif /* ADIOS2_HELPER_ADIOSFUNCTIONS_H_ */
+```
+
+**Compute min/max with CUDA**
+
+Using the thrust library for the reductions. Instantiate the `CUDAMinMax` function for all the datatypes declared in the `ADIOS2_FOREACH_PRIMITIVE_STDTYPE_1ARG` macro (defined in `adios2/common/ADIOSMacros.h`). The thrust reduction function does not work with `complex` datatypes and CUDA does not recognize long double so the `CUDAMinMax` function is overloaded and does not compute min/max for them at this point.
+
+```c++
+#include <thrust/extrema.h>
+#include <thrust/device_ptr.h>
+#include "adios2/common/ADIOSMacros.h"
+
+#include "adiosCUDA.h"
+
+namespace {
+template <class T>
+void CUDAMinMaxImpl(const T *values, const size_t size, T &min, T &max)
+{
+    thrust::device_ptr<const T> dev_ptr(values);
+    auto res = thrust::minmax_element(dev_ptr, dev_ptr + size);
+    cudaMemcpy(&min, thrust::raw_pointer_cast(res.first), sizeof(T), cudaMemcpyDeviceToHost);
+    cudaMemcpy(&max, thrust::raw_pointer_cast(res.second), sizeof(T), cudaMemcpyDeviceToHost);
+}
+// types non supported on the device
+void CUDAMinMaxImpl(const long double *values, const size_t size, long double &min, long double &max) {}
+void CUDAMinMaxImpl(const std::complex<float> *values, const size_t size, std::complex<float> &min, std::complex<float> &max) {}
+void CUDAMinMaxImpl(const std::complex<double> *values, const size_t size, std::complex<double> &min, std::complex<double> &max) {}
+}
+
+template <class T>
+void adios2::helper::CUDAMinMax(const T *values, const size_t size, T &min, T &max)
+{
+  CUDAMinMaxImpl(values, size, min, max);
+}
+
+#define declare_type(T) \
+template void adios2::helper::CUDAMinMax(const T *values, const size_t size, T &min, T &max);
+ADIOS2_FOREACH_PRIMITIVE_STDTYPE_1ARG(declare_type)
+#undef declare_type
+```
+
 ### Manage the device buffer
 
 All `Put` functions eventually call `PutVariableMetadata` and `PutVariablePayload` to copy the information from the user provided array to ADIOS internal buffers. In the first case statistics about the data are being saved, in the second the entire content of the array. The codes need to change to use the GPU equivalent functions for each blockInfo that has an positive `IsGPU` flag.
 
-For the `PutVariableMetadata` function:
+For the **PutVariableMetadata** function:
 ```diff
 diff --git a/source/adios2/toolkit/format/bp/bp4/BP4Serializer.tcc b/source/adios2/toolkit/format/bp/bp4/BP4Serializer.tcc
-index b3b429603..4246dec6e 100644
+index 4246dec6e..2345db9e5 100644
 --- a/source/adios2/toolkit/format/bp/bp4/BP4Serializer.tcc
 +++ b/source/adios2/toolkit/format/bp/bp4/BP4Serializer.tcc
-@@ -334,6 +334,10 @@ BP4Serializer::GetBPStats(const bool singleValue,
+@@ -334,9 +334,13 @@ BP4Serializer::GetBPStats(const bool singleValue,
      stats.Step = m_MetadataSet.TimeStep;
      stats.FileIndex = GetFileIndex();
 
-+    if (blockInfo.IsGPU){
-+        return stats;
-+    }
-+
++   #ifdef ADIOS2_HAVE_CUDA
+     if (blockInfo.IsGPU){
++        const size_t size = helper::GetTotalSize(blockInfo.Count);
++        helper::CUDAMinMax(blockInfo.Data, size, stats.Min, stats.Max);
+         return stats;
+     }
++   #endif
+
      // support span
-     if (blockInfo.Data == nullptr && m_Parameters.StatsLevel > 0)
-     {
 ```
 
-For the `PutVariablePayload` function:
+For the **PutVariablePayload** function:
 ```diff
 diff --git a/source/adios2/toolkit/format/bp/BPSerializer.tcc b/source/adios2/toolkit/format/bp/BPSerializer.tcc
 index 8414fa6eb..11b127add 100644

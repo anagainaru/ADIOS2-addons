@@ -19,7 +19,6 @@ v *      Author: Greg Eisenhauer
 
 int main(int argc, char *argv[])
 {
-
     int rank;
     int size;
 
@@ -37,7 +36,7 @@ int main(int argc, char *argv[])
         sstIO.SetEngine("Sst");
 
         adios2::Engine sstReader = sstIO.Open("helloSst", adios2::Mode::Read);
-        auto start = std::chrono::steady_clock::now();
+        auto start_step = std::chrono::steady_clock::now();
         sstReader.BeginStep();
         adios2::Variable<float> bpFloats =
             sstIO.InquireVariable<float>("bpFloats");
@@ -54,16 +53,14 @@ int main(int argc, char *argv[])
 
         bpFloats.SetSelection(sel);
         auto start_time = std::chrono::system_clock::now();
+        auto start_get = std::chrono::steady_clock::now();
         sstReader.Get(bpFloats, myFloats.data());
         sstReader.EndStep();
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        std::time_t tt = std::chrono::system_clock::to_time_t(start_time);
-        std::cout  << std::endl;
+        auto end_step = std::chrono::steady_clock::now();
         std::cout << "SST,Read," << rank << ","  << my_count << ","
-                  << elapsed_seconds.count() << ","
-                  << start_time.time_since_epoch().count() << ","
-                  << ctime(&tt);
+                  << (end_step - start_step).count() / 1000 << ","
+                  << (end_step - start_get).count() / 1000 << ","
+                  << start_time.time_since_epoch().count() << std::endl;
 
         sstReader.Close();
     }

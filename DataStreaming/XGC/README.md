@@ -119,7 +119,7 @@ spack load effis +compose
 
 EFFIS requires `yaml` files to define the properties of a run.
 This repo contains two such configuration files:
-- `xgc-DIIID.yaml` for a small demo running XGC with Avocado through BP files
+- `xgc-small-separate.yaml` for a small demo running XGC with Avocado through BP files
 - `xgc-small-mpmd.yaml` for a small demo running XGC with Avocado the SSC engine files
 
 To run the examples

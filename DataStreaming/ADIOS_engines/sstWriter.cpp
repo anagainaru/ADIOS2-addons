@@ -61,18 +61,18 @@ int main(int argc, char *argv[])
         // Create engine smart pointer to Sst Engine due to polymorphism,
         // Open returns a smart pointer to Engine containing the Derived class
         adios2::Engine sstWriter = sstIO.Open("helloSst", adios2::Mode::Write);
-        auto start = std::chrono::steady_clock::now();
+        auto start_step = std::chrono::steady_clock::now();
         sstWriter.BeginStep();
         auto start_time = std::chrono::system_clock::now();
+        auto start_put = std::chrono::steady_clock::now();
         sstWriter.Put<float>(bpFloats, myFloats.data());
         sstWriter.EndStep();
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        std::time_t tt = std::chrono::system_clock::to_time_t(start_time);
+        auto end_step = std::chrono::steady_clock::now();
+        // Time in miliseconds
         std::cout << "SST,Write," << rank << ","  << Nx << ","
-                  << elapsed_seconds.count() << ","  
-                  << start_time.time_since_epoch().count() << ","
-                  << ctime(&tt);
+                  << (end_step - start_step).count() / 1000 << ","
+                  << (end_step - start_put).count() / 1000 << ","
+                  << start_time.time_since_epoch().count() << std::endl;
         sstWriter.Close();
     }
     catch (std::invalid_argument &e)

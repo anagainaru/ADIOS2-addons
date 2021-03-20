@@ -1,6 +1,17 @@
-# Running the benchmarks
+# Running the codes
 
-To compile all the codes and create executables for each engine:
+## Compie the codes
+
+### Summit
+
+To compile all the codes and create executables for each engine, load all the necessary packages:
+```bash
+module load cmake
+module load gcc
+module load adios2/2.7.0
+```
+
+Build the codes:
 ```bash
 mkdir build
 cd build
@@ -8,9 +19,35 @@ cmake ..
 make -j4
 ```
 
-Running each engine.
+To run the code, due to incomptibility between libfabrics and mpi.
+```
+export LD_PRELOAD=/usr/lib64/libibverbs.so.1:/usr/lib64/librdmacm.so.1
+```
+
+The codes have been tested with the following versions:
+```
+cmake version 3.18.2
+gcc (GCC) 6.4.0
+```
+
+### Personal system
+```bash
+cmake -D adios2_ROOT=~/work/adios/ADIOS2-init/install/lib/cmake ..
+make -j4
+```
+
+## Running each engine
 
 **SST**
+
+On the **Writer side**, each rank writes N floats of random values.
+On the **Reader side**, each rank reads an equal portion of the written data. Parameters that can be changed are number of ranks for read/write and total array size.
+
+Test caes include:
+- One reader and one writer (ranks from SC19 paper) exchanging 10MB/rank or 1GB/rank data.
+- 10 Writers and one reader reading from all 10 variables
+- One writer and 10, 100, 1000 readers (keeping total ranks equal)
+
 ```bash
 $ ./sstWriter & ./sstReader
 Incoming variable is of size 10

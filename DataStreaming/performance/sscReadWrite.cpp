@@ -19,11 +19,19 @@ std::vector<float> create_random_data(int n) {
 }
 
 void read_data(adios2::IO sscIO, int rank, int size,
-               size_t variablesSize)
+               size_t Nx, size_t variablesSize)
 {
     double get_time = 0;
-    size_t Nx = 0;
+    const std::size_t my_start = Nx * rank;
+    const adios2::Dims start{my_start};
+    const adios2::Dims count{Nx};
+    const adios2::Box<adios2::Dims> sel(start, count);
+
     std::vector<std::vector<float>> myFloats(variablesSize);
+    for (unsigned int v = 0; v < variablesSize; v++)
+    {
+        myFloats[v].resize(Nx);
+    }
     adios2::Engine sscReader = sscIO.Open("helloSsc", adios2::Mode::Read);
     auto start_step = std::chrono::steady_clock::now();
     sscReader.LockReaderSelections();
@@ -35,17 +43,6 @@ void read_data(adios2::IO sscIO, int rank, int size,
         adios2::Variable<float> sscFloats =
             sscIO.InquireVariable<float>(namev);
 
-        const std::size_t total_size = sscFloats.Shape()[0];
-        const std::size_t my_start = (total_size / size) * rank;
-        const std::size_t my_count = (total_size / size);
-        Nx = my_count;
-
-        const adios2::Dims start{my_start};
-        const adios2::Dims count{my_count};
-
-        const adios2::Box<adios2::Dims> sel(start, count);
-
-        myFloats[v].resize(my_count);
         sscFloats.SetSelection(sel);
         auto start_get = std::chrono::steady_clock::now();
         sscReader.Get(sscFloats, myFloats[v].data());
@@ -130,7 +127,7 @@ int main(int argc, char *argv[])
         if (mpiGroup==0)
             write_data(sscIO, rank, size, Nx, variablesSize);
         if (mpiGroup == 1)
-            read_data(sscIO, rank, size, variablesSize);
+            read_data(sscIO, rank, size, Nx, variablesSize);
     }
     catch (std::invalid_argument &e)
     {

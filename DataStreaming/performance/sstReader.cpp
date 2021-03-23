@@ -1,13 +1,3 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * helloSstReader.cpp
- *
- *  Created on: Aug 17, 2017
-v *      Author: Greg Eisenhauer
- */
-
 #include <chrono>
 #include <iostream>
 #include <numeric>
@@ -19,17 +9,16 @@ v *      Author: Greg Eisenhauer
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2)
+    if (argc < 3)
     {
-        std::cout << "Usage: " << argv[0] << " number_variables"
+        std::cout << "Usage: " << argv[0] << " array_size number_variables"
                   << std::endl;
         return -1;
     }
-    const size_t variablesSize = atoi(argv[1]);
+    const size_t Nx = atoi(argv[1]);
+    const size_t variablesSize = atoi(argv[2]);
 
-    int rank;
-    int size;
-
+    int rank = 0, size = 1;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -46,7 +35,12 @@ int main(int argc, char *argv[])
         adios2::Engine sstReader = sstIO.Open("helloSst", adios2::Mode::Read);
 
         double get_time = 0;
-        int Nx = 0;
+        const std::size_t my_start = Nx * rank;
+        const adios2::Dims pos_start{my_start};
+        const adios2::Dims count{Nx};
+        const adios2::Box<adios2::Dims> sel(pos_start, count);
+        myFloats.resize(Nx);
+
         auto start_step = std::chrono::steady_clock::now();
         sstReader.BeginStep();
         for (unsigned int v = 0; v < variablesSize; ++v)
@@ -55,17 +49,6 @@ int main(int argc, char *argv[])
             namev += std::to_string(v);
             adios2::Variable<float> sstFloats =
                 sstIO.InquireVariable<float>(namev);
-
-            const std::size_t total_size = sstFloats.Shape()[0];
-            const std::size_t my_start = (total_size / size) * rank;
-            const std::size_t my_count = (total_size / size);
-            const adios2::Dims pos_start{my_start};
-            const adios2::Dims count{my_count};
-
-            const adios2::Box<adios2::Dims> sel(pos_start, count);
-
-            myFloats.resize(my_count);
-            Nx = my_count;
 
             sstFloats.SetSelection(sel);
             auto start_get = std::chrono::steady_clock::now();

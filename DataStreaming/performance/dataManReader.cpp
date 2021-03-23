@@ -1,13 +1,3 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * helloDataManReader.cpp
- *
- *  Created on: Jan 9, 2017
- *      Author: Jason Wang
- */
-
 #include <adios2.h>
 #include <chrono>
 #include <iostream>

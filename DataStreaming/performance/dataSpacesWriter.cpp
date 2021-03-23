@@ -1,37 +1,40 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * helloDataSpacesWriter.cpp
- *
- *  Created on: Feb 06, 2019
- *      Author: Pradeep Subedi
- *      		pradeep.subedi@rutgers.edu
- */
-
 #include <iostream>
 #include <vector>
+#include <random>
+#include <chrono>
 
 #include <adios2.h>
-
 #include <mpi.h>
+
+std::vector<float> create_random_data(int n) {
+    std::random_device r;
+    std::seed_seq      seed{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::mt19937       eng(seed);
+
+    std::uniform_int_distribution<int> dist;
+    std::vector<float> v(n);
+
+    generate(begin(v), end(v), bind(dist, eng));
+    return v;
+}
 
 int main(int argc, char *argv[])
 {
+    if (argc < 3)
+    {
+        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+                  << std::endl;
+        return -1;
+    }
+    const size_t Nx = atoi(argv[1]);
+    const size_t variablesSize = atoi(argv[2]);
 
-    int rank;
-    int size;
-
+    int rank = 0, size = 1;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::vector<float> myFloats = {
-        (float)10.0 * rank + 0, (float)10.0 * rank + 1, (float)10.0 * rank + 2,
-        (float)10.0 * rank + 3, (float)10.0 * rank + 4, (float)10.0 * rank + 5,
-        (float)10.0 * rank + 6, (float)10.0 * rank + 7, (float)10.0 * rank + 8,
-        (float)10.0 * rank + 9};
-    const std::size_t Nx = myFloats.size();
+    auto myFloats = create_random_data(Nx);
 
     try
     {
@@ -40,17 +43,40 @@ int main(int argc, char *argv[])
         dataSpacesIO.SetEngine("DATASPACES");
 
         // Define variable and local size
-        auto bpFloats = dataSpacesIO.DefineVariable<float>(
-            "bpFloats", {size * Nx}, {rank * Nx}, {Nx});
+        std::vector<adios2::Variable<float>> dsFloats(variablesSize);
+        for (unsigned int v = 0; v < variablesSize; ++v)
+        {
+            std::string namev("dsFloats");
+            namev += std::to_string(v);
+            dsFloats[v] = dataSpacesIO.DefineVariable<float>(
+                    namev, {size * Nx}, {rank * Nx}, {Nx});
+        }
 
         // Create engine smart pointer to Sst Engine due to polymorphism,
         // Open returns a smart pointer to Engine containing the Derived class
         adios2::Engine dataSpacesWriter =
             dataSpacesIO.Open("helloDataSpaces", adios2::Mode::Write);
 
-        dataSpacesWriter.BeginStep();
-        dataSpacesWriter.Put<float>(bpFloats, myFloats.data());
-        dataSpacesWriter.EndStep();
+        double put_time = 0;
+        for (unsigned int timeStep = 0; timeStep < 1; ++timeStep)
+        {
+            auto start_step = std::chrono::steady_clock::now();
+            dataSpacesWriter.BeginStep();
+            for (unsigned int v = 0; v < variablesSize; ++v)
+            {
+                myFloats[rank] += static_cast<float>(v + rank);
+                auto start_put = std::chrono::steady_clock::now();
+                dataSpacesWriter.Put<float>(dsFloats[v], myFloats.data());
+                auto end_put = std::chrono::steady_clock::now();
+                put_time += (end_put - start_put).count() / 1000;
+            }
+            dataSpacesWriter.EndStep();
+            auto end_step = std::chrono::steady_clock::now();
+            // Time in microseconds
+            std::cout << "DataSpaces,Write," << rank << ","  << Nx << ","
+                      << variablesSize << "," << put_time << ","
+                      << (end_step - start_step).count() / 1000 << std::endl;
+        }
         dataSpacesWriter.Close();
     }
     catch (std::invalid_argument &e)

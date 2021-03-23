@@ -1,13 +1,3 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * helloSstReader.cpp
- *
- *  Created on: Aug 17, 2017
-v *      Author: Greg Eisenhauer
- */
-
 #include <chrono>
 #include <iostream>
 #include <numeric>
@@ -19,15 +9,21 @@ v *      Author: Greg Eisenhauer
 
 int main(int argc, char *argv[])
 {
+    if (argc < 3)
+    {
+        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+                  << std::endl;
+        return -1;
+    }
+    const size_t Nx = atoi(argv[1]);
+    const size_t variablesSize = atoi(argv[2]);
 
-    int rank;
-    int size;
-
+    int rank = 0, size = 1;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::vector<float> myFloats(10);
+    std::vector<float> myFloats;
 
     try
     {
@@ -37,33 +33,34 @@ int main(int argc, char *argv[])
         sstIO.SetEngine("Sst");
 
         adios2::Engine sstReader = sstIO.Open("helloSst", adios2::Mode::Read);
-        auto start = std::chrono::steady_clock::now();
-        sstReader.BeginStep();
-        adios2::Variable<float> bpFloats =
-            sstIO.InquireVariable<float>("bpFloats");
-        const std::size_t total_size = bpFloats.Shape()[0];
-        const std::size_t my_start = (total_size / size) * rank;
-        const std::size_t my_count = (total_size / size);
+
+        double get_time = 0;
+        const std::size_t my_start = Nx * rank;
         const adios2::Dims pos_start{my_start};
-        const adios2::Dims count{my_count};
-
+        const adios2::Dims count{Nx};
         const adios2::Box<adios2::Dims> sel(pos_start, count);
+        myFloats.resize(Nx);
 
-        std::vector<float> myFloats;
-        myFloats.resize(my_count);
+        auto start_step = std::chrono::steady_clock::now();
+        sstReader.BeginStep();
+        for (unsigned int v = 0; v < variablesSize; ++v)
+        {
+            std::string namev("sstFloats");
+            namev += std::to_string(v);
+            adios2::Variable<float> sstFloats =
+                sstIO.InquireVariable<float>(namev);
 
-        bpFloats.SetSelection(sel);
-        auto start_time = std::chrono::system_clock::now();
-        sstReader.Get(bpFloats, myFloats.data());
+            sstFloats.SetSelection(sel);
+            auto start_get = std::chrono::steady_clock::now();
+            sstReader.Get(sstFloats, myFloats.data());
+            auto end_get = std::chrono::steady_clock::now();
+            get_time += (end_get - start_get).count() / 1000;
+        }
         sstReader.EndStep();
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        std::time_t tt = std::chrono::system_clock::to_time_t(start_time);
-        std::cout  << std::endl;
-        std::cout << "SST,Read," << rank << ","  << my_count << ","
-                  << elapsed_seconds.count() << ","
-                  << start_time.time_since_epoch().count() << ","
-                  << ctime(&tt);
+        auto end_step = std::chrono::steady_clock::now();
+        std::cout << "SST,Read," << rank << ","  << Nx << ","
+                  << variablesSize << "," << get_time << ","
+                  << (end_step - start_step).count() / 1000 << std::endl;
 
         sstReader.Close();
     }

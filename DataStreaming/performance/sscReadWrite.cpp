@@ -1,67 +1,98 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * SscReadWriter.cpp
- *
- *  Created on: Feb 19, 2021
- *      Author: Ana Gainaru
- */
-
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <random>
 
 #include <adios2.h>
 #include <mpi.h>
 
-void read_data(adios2::IO sscIO, int rank, int size)
+std::vector<float> create_random_data(int n) {
+    std::random_device r;
+    std::seed_seq      seed{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::mt19937       eng(seed);
+
+    std::uniform_int_distribution<int> dist;
+    std::vector<float> v(n);
+
+    generate(begin(v), end(v), bind(dist, eng));
+    return v;
+}
+
+void read_data(adios2::IO sscIO, int rank, int size,
+               size_t Nx, size_t variablesSize)
 {
-    adios2::Engine sscReader = sscIO.Open("helloSsc", adios2::Mode::Read);
-    sscReader.LockReaderSelections();
-    sscReader.BeginStep();
-    adios2::Variable<float> bpFloats =
-        sscIO.InquireVariable<float>("bpFloats");
-    std::cout << "Incoming variable is of size " << bpFloats.Shape()[0]
-              << "\n";
-    const std::size_t total_size = bpFloats.Shape()[0];
-    const std::size_t my_start = (total_size / size) * rank;
-    const std::size_t my_count = (total_size / size);
-
+    double get_time = 0;
+    const std::size_t my_start = Nx * rank;
     const adios2::Dims start{my_start};
-    const adios2::Dims count{my_count};
-
+    const adios2::Dims count{Nx};
     const adios2::Box<adios2::Dims> sel(start, count);
 
-    std::vector<float> myFloats;
-    myFloats.resize(my_count);
-    bpFloats.SetSelection(sel);
-    sscReader.Get(bpFloats, myFloats.data());
-    sscReader.EndStep();
+    std::vector<std::vector<float>> myFloats(variablesSize);
+    for (unsigned int v = 0; v < variablesSize; v++)
+    {
+        myFloats[v].resize(Nx);
+    }
+    adios2::Engine sscReader = sscIO.Open("helloSsc", adios2::Mode::Read);
+    auto start_step = std::chrono::steady_clock::now();
+    sscReader.LockReaderSelections();
+    sscReader.BeginStep();
+    for (unsigned int v = 0; v < variablesSize; v++)
+    {
+        std::string namev("sscFloats");
+        namev += std::to_string(v);
+        adios2::Variable<float> sscFloats =
+            sscIO.InquireVariable<float>(namev);
 
-    std::cout << "Reader rank " << rank << " reading " << my_count
-              << " floats starting at element " << my_start << ":"
-              << " first element " << myFloats.data()[0] << "\n";
+        sscFloats.SetSelection(sel);
+        auto start_get = std::chrono::steady_clock::now();
+        sscReader.Get(sscFloats, myFloats[v].data());
+        auto end_get = std::chrono::steady_clock::now();
+        get_time += (end_get - start_get).count() / 1000;
+    }
+    sscReader.EndStep();
+    auto end_step = std::chrono::steady_clock::now();
+    // Time in microseconds
+    std::cout << "SSC,Read," << rank << ","  << Nx << ","
+              << variablesSize << "," << get_time << ","
+              << (end_step - start_step).count() / 1000 << std::endl;
     sscReader.Close();
 }
 
-void write_data(adios2::IO sscIO, int rank, int size)
+void write_data(adios2::IO sscIO, int rank, int size,
+                size_t Nx, size_t variablesSize)
 {
-    std::vector<float> myFloats = {
-        (float)10.0 * rank + 10, (float)10.0 * rank + 11, (float)10.0 * rank + 12,
-        (float)10.0 * rank + 13, (float)10.0 * rank + 14, (float)10.0 * rank + 15,
-        (float)10.0 * rank + 16, (float)10.0 * rank + 17, (float)10.0 * rank + 18,
-        (float)10.0 * rank + 19};
-    const std::size_t Nx = myFloats.size();
+    // Application variable
+    auto myFloats = create_random_data(Nx);
+    adios2::Engine sscWriter = sscIO.Open("helloSsc", adios2::Mode::Write);
 
     // Define variable and local size
-    auto bpFloats = sscIO.DefineVariable<float>("bpFloats", {size * Nx},
-                                                {rank * Nx}, {Nx});
+    std::vector<adios2::Variable<float>> sscFloats(variablesSize);
+    for (unsigned int v = 0; v < variablesSize; ++v)
+    {
+        std::string namev("sscFloats");
+        namev += std::to_string(v);
+        sscFloats[v] = sscIO.DefineVariable<float>(
+            namev, {size * Nx}, {rank * Nx}, {Nx});
+    }
 
-    adios2::Engine sscWriter = sscIO.Open("helloSsc", adios2::Mode::Write);
+    double put_time = 0;
+    auto start_step = std::chrono::steady_clock::now();
     sscWriter.LockWriterDefinitions();
     sscWriter.BeginStep();
-    sscWriter.Put<float>(bpFloats, myFloats.data());
+    for (unsigned int v = 0; v < variablesSize; v++)
+    {
+        myFloats[rank] += static_cast<float>(v + rank);
+        auto start_put = std::chrono::steady_clock::now();
+        sscWriter.Put<float>(sscFloats[v], myFloats.data());
+        auto end_put = std::chrono::steady_clock::now();
+        put_time += (end_put - start_put).count() / 1000;
+    }
     sscWriter.EndStep();
+    auto end_step = std::chrono::steady_clock::now();
+    // Time in microseconds
+    std::cout << "SSC,Write," << rank << ","  << Nx << ","
+              << variablesSize << "," << put_time << ","
+              << (end_step - start_step).count() / 1000 << std::endl;
     sscWriter.Close();
 }
 
@@ -71,6 +102,15 @@ int main(int argc, char *argv[])
     MPI_Comm mpiComm;
     int worldRank, worldSize;
     int rank, size;
+    if (argc < 3)
+    {
+        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+                  << std::endl;
+        return -1;
+    }
+    const size_t Nx = atoi(argv[1]);
+    const size_t variablesSize = atoi(argv[2]);
+
     MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
     MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
     int mpiGroup = worldRank / (worldSize / 2);
@@ -85,9 +125,9 @@ int main(int argc, char *argv[])
         sscIO.SetEngine("Ssc");
 
         if (mpiGroup==0)
-            write_data(sscIO, rank, size);
+            write_data(sscIO, rank, size, Nx, variablesSize);
         if (mpiGroup == 1)
-            read_data(sscIO, rank, size);
+            read_data(sscIO, rank, size, Nx, variablesSize);
     }
     catch (std::invalid_argument &e)
     {

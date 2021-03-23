@@ -1,134 +1,112 @@
-/*
- * Distributed under the OSI-approved Apache License, Version 2.0.  See
- * accompanying file Copyright.txt for details.
- *
- * helloInlineReaderWriter.cpp  example borrowed from helloBPTimeWriter, using
- * the inline engine. Writes a variable using the Advance function for time
- * aggregation. Time step is saved as an additional (global) single value
- * variable, just for tracking purposes.
- *
- *  Created on: Nov 16, 2018
- *      Author: Aron Helser aron.helser@kitware.com
- */
-
 #include <algorithm> //std::for_each
 #include <ios>       //std::ios_base::failure
 #include <iostream>  //std::cout
 #include <stdexcept> //std::invalid_argument std::exception
 #include <vector>
+#include <chrono>
+#include <random>
 
 #include <adios2.h>
+#include <mpi.h>
+
+std::vector<float> create_random_data(int n) {
+    std::random_device r;
+    std::seed_seq      seed{r(), r(), r(), r(), r(), r(), r(), r()};
+    std::mt19937       eng(seed);
+
+    std::uniform_int_distribution<int> dist;
+    std::vector<float> v(n);
+
+    generate(begin(v), end(v), bind(dist, eng));
+    return v;
+}
 
 void DoAnalysis(adios2::IO &inlineIO, adios2::Engine &inlineReader, int rank,
-                unsigned int step)
+                int size, size_t variablesSize, unsigned int step)
 {
+    double get_time = 0;
+    int Nx = 0;
+    auto start_step = std::chrono::steady_clock::now();
     inlineReader.BeginStep();
-    /////////////////////READ
-    adios2::Variable<float> inlineFloats000 =
-        inlineIO.InquireVariable<float>("inlineFloats000");
-
-    adios2::Variable<std::string> inlineString =
-        inlineIO.InquireVariable<std::string>("inlineString");
-
-    if (inlineFloats000)
+    // READ
+    for (unsigned int v = 0; v < variablesSize; ++v)
     {
-        auto blocksInfo = inlineReader.BlocksInfo(inlineFloats000, step);
+        std::string namev("inlineFloats");
+        namev += std::to_string(v);
+        adios2::Variable<float> inlineFloats =
+            inlineIO.InquireVariable<float>(namev);
 
-        std::cout << "Data StepsStart " << inlineFloats000.StepsStart()
-                  << " from rank " << rank << ": ";
-        for (auto &info : blocksInfo)
+        if (inlineFloats)
         {
-            // bp file reader would see all blocks, inline only sees local
-            // writer's block(s).
-            size_t myBlock = info.BlockID;
-            inlineFloats000.SetBlockSelection(myBlock);
+            Nx = (inlineFloats.Shape()[0] / size);
+            auto blocksInfo = inlineReader.BlocksInfo(inlineFloats, step);
 
-            // info passed by reference
-            // engine must remember data pointer (or info) to fill it out at
-            // PerformGets()
-            inlineReader.Get<float>(inlineFloats000, info,
-                                    adios2::Mode::Deferred);
-        }
-        inlineReader.PerformGets();
-
-        for (const auto &info : blocksInfo)
-        {
-            adios2::Dims count = info.Count;
-            const float *vectData = info.Data();
-            for (size_t i = 0; i < count[0]; ++i)
+            auto start_get = std::chrono::steady_clock::now();
+            for (auto &info : blocksInfo)
             {
-                float datum = vectData[i];
-                std::cout << datum << " ";
+                // bp file reader would see all blocks, inline only sees local
+                // writer's block(s).
+                size_t myBlock = info.BlockID;
+                inlineFloats.SetBlockSelection(myBlock);
+
+                inlineReader.Get<float>(inlineFloats, info,
+                                        adios2::Mode::Deferred);
             }
-            std::cout << "\n";
+            inlineReader.PerformGets();
+            auto end_get = std::chrono::steady_clock::now();
+            get_time += (end_get - start_get).count() / 1000;
+        }
+        else
+        {
+            std::cout << "Variable inlineFloats not found\n";
         }
     }
-    else
-    {
-        std::cout << "Variable inlineFloats000 not found\n";
-    }
 
-    if (inlineString && rank == 0)
-    {
-        std::string myString;
-        inlineReader.Get(inlineString, myString, adios2::Mode::Sync);
-        std::cout << "inlineString: " << myString << "\n";
-    }
     inlineReader.EndStep();
+    auto end_step = std::chrono::steady_clock::now();
+    // Time in microseconds
+    std::cout << "Inline,Read," << rank << ","  << Nx << ","
+              << variablesSize << "," << get_time << ","
+              << (end_step - start_step).count() / 1000 << std::endl;
     // all deferred block info are now valid - need data pointers to be
     // valid, filled with data
 }
 
 int main(int argc, char *argv[])
 {
+    if (argc < 3)
+    {
+        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+                  << std::endl;
+        return -1;
+    }
+    const size_t Nx = atoi(argv[1]);
+    const size_t variablesSize = atoi(argv[2]);
+
     int rank = 0, size = 1;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    adios2::ADIOS adios(MPI_COMM_WORLD);
 
     // Application variable
-    std::vector<float> myFloats = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-    const std::size_t Nx = myFloats.size();
+    auto myFloats = create_random_data(Nx);
 
     try
     {
         // Inline uses single IO for write/read
+        adios2::ADIOS adios(MPI_COMM_WORLD);
         adios2::IO inlineIO = adios.DeclareIO("InlineReadWrite");
-        /// WRITE
-        //inlineIO.SetEngine("Inline");
+        // WRITE
         inlineIO.SetEngine("Inline");
-        inlineIO.SetParameter("verbose", "4");
 
-        /** global array: name, { shape (total dimensions) }, { start
-         * (local) },
-         * { count (local) }, all are constant dimensions */
-        const unsigned int variablesSize = 10;
         std::vector<adios2::Variable<float>> inlineFloats(variablesSize);
-
-        adios2::Variable<std::string> inlineString =
-            inlineIO.DefineVariable<std::string>("inlineString");
-
         for (unsigned int v = 0; v < variablesSize; ++v)
         {
             std::string namev("inlineFloats");
-            if (v < 10)
-            {
-                namev += "00";
-            }
-            else if (v < 100)
-            {
-                namev += "0";
-            }
             namev += std::to_string(v);
-
             inlineFloats[v] = inlineIO.DefineVariable<float>(
                 namev, {size * Nx}, {rank * Nx}, {Nx}, adios2::ConstantDims);
         }
-
-        /** global single value variable: name */
-        adios2::Variable<unsigned int> inlineTimeStep =
-            inlineIO.DefineVariable<unsigned int>("timeStep");
 
         adios2::Engine inlineWriter =
             inlineIO.Open("myWriteID", adios2::Mode::Write);
@@ -136,35 +114,28 @@ int main(int argc, char *argv[])
         adios2::Engine inlineReader =
             inlineIO.Open("myReadID", adios2::Mode::Read);
 
-        for (unsigned int timeStep = 0; timeStep < 3; ++timeStep)
+        for (unsigned int timeStep = 0; timeStep < 1; ++timeStep)
         {
+            double put_time = 0;
+            auto start_step = std::chrono::steady_clock::now();
             inlineWriter.BeginStep();
-            if (rank == 0) // global single value, only saved by rank 0
-            {
-                inlineWriter.Put<unsigned int>(inlineTimeStep, timeStep);
-            }
-
-            // template type is optional, but recommended
             for (unsigned int v = 0; v < variablesSize; ++v)
             {
-                // Note: Put is deferred, so all variables will see v == 9
-                // and myFloats[0] == 9, 10, or 11
-                myFloats[rank] = static_cast<float>(v + timeStep + rank);
+                myFloats[rank] += static_cast<float>(v + rank);
+                auto start_put = std::chrono::steady_clock::now();
                 inlineWriter.Put(inlineFloats[v], myFloats.data());
+                auto end_put = std::chrono::steady_clock::now();
+                put_time += (end_put - start_put).count() / 1000;
             }
-
-            const std::string myString(
-                "Hello from rank: " + std::to_string(rank) +
-                " and timestep: " + std::to_string(timeStep));
-
-            if (rank == 0)
-            {
-                inlineWriter.Put(inlineString, myString);
-            }
-
             inlineWriter.EndStep();
+            auto end_step = std::chrono::steady_clock::now();
+            // Time in microseconds
+            std::cout << "Inline,Write," << rank << ","  << Nx << ","
+                      << variablesSize << "," << put_time << ","
+                      << (end_step - start_step).count() / 1000 << std::endl;
 
-            DoAnalysis(inlineIO, inlineReader, rank, timeStep);
+            DoAnalysis(inlineIO, inlineReader, rank, size,
+                       variablesSize, timeStep);
         }
     }
     catch (std::exception const &e)

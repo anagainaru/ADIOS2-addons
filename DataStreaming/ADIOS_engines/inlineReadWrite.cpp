@@ -64,10 +64,20 @@ void DoAnalysis(adios2::IO &inlineIO, adios2::Engine &inlineReader, int rank,
 
     inlineReader.EndStep();
     auto end_step = std::chrono::steady_clock::now();
+    double total_time = (end_step - start_step).count() / 1000;
+
+    double global_get_sum;
+    MPI_Reduce(&get_time, &global_get_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           MPI_COMM_WORLD);
+    double global_sum;
+    MPI_Reduce(&total_time, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           MPI_COMM_WORLD);
+
     // Time in microseconds
-    std::cout << "Inline,Read," << rank << ","  << Nx << ","
-              << variablesSize << "," << get_time << ","
-              << (end_step - start_step).count() / 1000 << std::endl;
+    if (rank == 0)
+        std::cout << "Inline,Read," << size << "," << Nx << ","
+                  << variablesSize << "," << global_get_sum / size << ","
+                  << global_sum / size << std::endl;
     // all deferred block info are now valid - need data pointers to be
     // valid, filled with data
 }
@@ -129,10 +139,20 @@ int main(int argc, char *argv[])
             }
             inlineWriter.EndStep();
             auto end_step = std::chrono::steady_clock::now();
-            // Time in microseconds
-            std::cout << "Inline,Write," << rank << ","  << Nx << ","
-                      << variablesSize << "," << put_time << ","
-                      << (end_step - start_step).count() / 1000 << std::endl;
+	    double total_time = (end_step - start_step).count() / 1000;
+
+	    double global_put_sum;
+	    MPI_Reduce(&put_time, &global_put_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+		   MPI_COMM_WORLD);
+	    double global_sum;
+	    MPI_Reduce(&total_time, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+		   MPI_COMM_WORLD);
+
+	    // Time in microseconds
+	    if (rank == 0)
+		std::cout << "Inline,Write," << size << "," << Nx << ","
+			  << variablesSize << "," << global_put_sum / size << ","
+			  << global_sum / size << std::endl;
 
             DoAnalysis(inlineIO, inlineReader, rank, size,
                        variablesSize, timeStep);

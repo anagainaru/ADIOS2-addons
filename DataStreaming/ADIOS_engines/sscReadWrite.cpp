@@ -2,6 +2,7 @@
 #include <vector>
 #include <chrono>
 #include <random>
+#include <algorithm>
 
 #include <adios2.h>
 #include <mpi.h>
@@ -18,10 +19,11 @@ std::vector<float> create_random_data(int n) {
     return v;
 }
 
-void read_data(adios2::IO sscIO, int rank, int size,
-               size_t Nx, size_t variablesSize)
+void read_data(adios2::IO sscIO, int rank, int size, size_t Nx_write,
+               size_t variablesSize, MPI_Comm mpiComm, int number_writers)
 {
     double get_time = 0;
+    size_t Nx = Nx_write * number_writers / size;
     const std::size_t my_start = Nx * rank;
     const adios2::Dims start{my_start};
     const adios2::Dims count{Nx};
@@ -51,15 +53,27 @@ void read_data(adios2::IO sscIO, int rank, int size,
     }
     sscReader.EndStep();
     auto end_step = std::chrono::steady_clock::now();
+    double total_time = (end_step - start_step).count() / (size * 1000);
+    get_time /= size;
+
+    double global_get_sum = 0;
+    MPI_Reduce(&get_time, &global_get_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           mpiComm);
+    double global_sum = 0;
+    MPI_Reduce(&total_time, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           mpiComm);
+
     // Time in microseconds
-    std::cout << "SSC,Read," << rank << ","  << Nx << ","
-              << variablesSize << "," << get_time << ","
-              << (end_step - start_step).count() / 1000 << std::endl;
+    if (rank == 0){
+        std::cout << "SSC,Read," << size << "," << Nx << ","
+                  << variablesSize << "," << global_get_sum << ","
+                  << global_sum  << std::endl;
+    }
     sscReader.Close();
 }
 
 void write_data(adios2::IO sscIO, int rank, int size,
-                size_t Nx, size_t variablesSize)
+                size_t Nx, size_t variablesSize, MPI_Comm mpiComm)
 {
     // Application variable
     auto myFloats = create_random_data(Nx);
@@ -89,10 +103,20 @@ void write_data(adios2::IO sscIO, int rank, int size,
     }
     sscWriter.EndStep();
     auto end_step = std::chrono::steady_clock::now();
+    double total_time = (end_step - start_step).count() / 1000;
+
+    double global_put_sum;
+    MPI_Reduce(&put_time, &global_put_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           mpiComm);
+    double global_sum;
+    MPI_Reduce(&total_time, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+           mpiComm);
+
     // Time in microseconds
-    std::cout << "SSC,Write," << rank << ","  << Nx << ","
-              << variablesSize << "," << put_time << ","
-              << (end_step - start_step).count() / 1000 << std::endl;
+    if (rank == 0)
+        std::cout << "SSC,Write," << size << "," << Nx << ","
+                  << variablesSize << "," << global_put_sum / size << ","
+                  << global_sum / size << std::endl;
     sscWriter.Close();
 }
 
@@ -101,19 +125,29 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm mpiComm;
     int worldRank, worldSize;
-    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
+
+    int rank, size, number_readers = worldSize / 2;
+
     if (argc < 3)
     {
-        std::cout << "Usage: " << argv[0] << " array_size number_variables"
-                  << std::endl;
+        std::cout << "Usage: " << argv[0] << " array_size number_variables "
+		  << "[readers]" << std::endl;
         return -1;
     }
     const size_t Nx = atoi(argv[1]);
     const size_t variablesSize = atoi(argv[2]);
+    if (argc == 4)
+	number_readers = atoi(argv[3]);
 
-    MPI_Comm_rank(MPI_COMM_WORLD, &worldRank);
-    MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
-    int mpiGroup = worldRank / (worldSize / 2);
+    int mpiGroup = 1, number_writers = worldSize - number_readers;
+    if (number_writers <= 0 || number_readers <=0){
+        std::cout << "Invalide number of readers / writers" << std::endl;
+        MPI_Finalize();
+        return 1;
+    }
+    if (worldRank >= number_readers) mpiGroup = 0;
     MPI_Comm_split(MPI_COMM_WORLD, mpiGroup, worldRank, &mpiComm);
     MPI_Comm_rank(mpiComm, &rank);
     MPI_Comm_size(mpiComm, &size);
@@ -125,9 +159,9 @@ int main(int argc, char *argv[])
         sscIO.SetEngine("Ssc");
 
         if (mpiGroup==0)
-            write_data(sscIO, rank, size, Nx, variablesSize);
+            write_data(sscIO, rank, size, Nx, variablesSize, mpiComm);
         if (mpiGroup == 1)
-            read_data(sscIO, rank, size, Nx, variablesSize);
+            read_data(sscIO, rank, size, Nx, variablesSize, mpiComm, number_writers);
     }
     catch (std::invalid_argument &e)
     {

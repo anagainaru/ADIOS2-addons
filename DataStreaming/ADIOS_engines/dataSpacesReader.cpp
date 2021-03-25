@@ -3,22 +3,9 @@
 #include <numeric>
 #include <thread>
 #include <vector>
-#include <random>
 
 #include <adios2.h>
 #include <mpi.h>
-
-std::vector<float> create_random_data(int n) {
-    std::random_device r;
-    std::seed_seq      seed{r(), r(), r(), r(), r(), r(), r(), r()};
-    std::mt19937       eng(seed);
-
-    std::uniform_int_distribution<int> dist;
-    std::vector<float> v(n);
-
-    generate(begin(v), end(v), bind(dist, eng));
-    return v;
-}
 
 int main(int argc, char *argv[])
 {

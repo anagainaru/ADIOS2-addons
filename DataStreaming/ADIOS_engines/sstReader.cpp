@@ -58,10 +58,22 @@ int main(int argc, char *argv[])
         }
         sstReader.EndStep();
         auto end_step = std::chrono::steady_clock::now();
-        std::cout << "SST,Read," << rank << ","  << Nx << ","
-                  << variablesSize << "," << get_time << ","
-                  << (end_step - start_step).count() / 1000 << std::endl;
+	double total_time = (end_step - start_step).count() / (size * 1000);
+	get_time /= size;
 
+	double global_get_sum = 0;
+	MPI_Reduce(&get_time, &global_get_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+		   MPI_COMM_WORLD);
+	double global_sum = 0;
+	MPI_Reduce(&total_time, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+		   MPI_COMM_WORLD);
+
+	// Time in microseconds
+	if (rank == 0){
+		std::cout << "SST,Read," << size << "," << Nx << ","
+			  << variablesSize << "," << global_get_sum << ","
+			  << global_sum  << std::endl;
+	    }
         sstReader.Close();
     }
     catch (std::invalid_argument &e)

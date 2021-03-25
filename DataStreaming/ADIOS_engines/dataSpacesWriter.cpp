@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <chrono>
+#include <algorithm>
 
 #include <adios2.h>
 #include <mpi.h>

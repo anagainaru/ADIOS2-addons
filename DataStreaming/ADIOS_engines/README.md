@@ -41,6 +41,40 @@ cmake -D adios2_ROOT=~/work/adios/ADIOS2-init/install/lib/cmake ..
 make -j4
 ```
 
+## Simulation scenarios
+
+`WR` writers, `RD` readers, `V` variables, `N` array size
+
+Each writer puts `V * N` floats into the stream and each reader gets `V * N * WR / RD` floats in each run.
+
+### 1. Variable impact
+
+Same number of writers `WR`, same number of readers `RD` and constant total amount of data streaming between them.
+
+- Each scenario uses different number of variables and array sizes so that `V * N` is constant 
+- `V = 1; N = 1GB`; `V = 10; N = 100MB`; `V = 100; N = 10MB`; `V = 1000; N = 1MB`
+
+**SSC**
+
+![SSC variable performance](../docs/perf_ssc_variable.png)
+
+### 2. Same total write size
+
+In this scenario we keep the same number of writers `WR` and readers `RD` and increase the amount of data that is streamed.
+ - one 1D variable is being used in a one step simulation -
+
+Each writer puts `N` floats into the stream and each reader gets `N * WR / RD` floats in each run.
+
+Data is gathered for:
+- `WR = 100` and `RD = 10` 
+- `WR = 10` and `RD = 1`
+- The file size increases from 100MB to 4GB per writer `N = { 100...4096 }`.
+
+### 3. Same total read size
+
+
+
+
 ## Running each engine
 
 **SST, SSC, Inline**

@@ -41,31 +41,28 @@ cmake -D adios2_ROOT=~/work/adios/ADIOS2-init/install/lib/cmake ..
 make -j4
 ```
 
-## Running each engine
+## Simulation scenarios
 
-**SST, SSC, Inline**
+**Notations:**
+- `WR` writers, `RD` readers, `V` variables, `N` array size
+- Each writer puts `V * N` floats into the stream and each reader gets `V * N * WR / RD` floats in each run.
+- Total amount of data exchanged through the system `D = WR * V * N`
 
-On the **Writer side**, each rank writes V variables each of  N floats of random values.
-On the **Reader side**, each rank reads an equal portion of the written data. Parameters that can be changed are number of ranks for read/write and total array size.
+**Basic IO performance**
+1. Figure showing how increasing the total exchanged data does not correspond with an increase in execution time / throughput.
+2. Figure showing performance as we increase the number of writers / readers
+    - Number of writers (`WR = 32, 64, 128, 256, 512, 1024`) and readers `RD = WR / 2`
+    - Strong scaling by keeping the same amount of total data (D) and data per writer (D/WR), per reader (D/RD) 
+    - Weak scaling by keeping the data per writer fixed, total amount of data increases with WR 
+3. Impact of different variables by keeping the total data exchanged constant
+    - Impact of number of variables storing the total data (same WR, RD, variables and array size per variable change)
+    - Impact of the array dimensions (1D, 2D array)
+    - Impact of number of writers putting the total data (same V, RD, writers and array size per writer change)
+    - Impact of number of readers getting the total data (same V, WR, readers and array size per reader change)
+4. Inline performance
 
-Test caes include:
-- Equal number of readers and writers (1, 10, 100, 1000 processors) exchanging 100MB/rank or 4GB/rank data.
-- Increasing the number of variables 1, 10 , 100
-- Increasing the number of writers to one reader (total write size kept the same)
-- One writer and increase number of readers (total read size per rank kept the same)
+**Basic application performance**
+Lipeng scenarios
 
-The repo contains batch script used to submit on Summit.
-
-
-**DataMan**
-```bash
-./dmWriter & ./dmReader
-libc++abi.dylib: terminating with uncaught exception of type std::invalid_argument: ERROR: this version didn't compile with DataMan library, can't use DataMan engine
-```
-
-**DataSpaces**
-```bash
-./dsWriter & ./dsReader
-Invalid argument exception, STOPPING PROGRAM from rank 0
-ERROR: this version didn't compile with DataSpaces library, can't use DataSpaces engine
-```
+**Application runs**
+XGC with Avocado in different formats

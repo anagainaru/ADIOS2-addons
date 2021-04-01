@@ -1,0 +1,117 @@
+jobname: xgc-DIIID
+walltime: 1800
+
+period_1d:  1
+period_3d:  1
+period_f3d: 1
+#steps: 150
+steps: 5
+
+nphi: 4
+nrho: 3
+
+machine:
+  name: summit
+  charge: csc143
+
+mpmd: true
+prev-steps: "00600"
+prev: /gpfs/alpine/world-shared/csc143/esuchyta/runs/xgc-DIIID-plot-400-600/xgc
+rundir: /gpfs/alpine/csc143/proj-shared/againaru/xcg/runs/mpmd-ssc-9
+
+
+run:
+
+  xgc:
+    pre-submit-commands:
+      - "mkdir restart_dir"
+      - "mkdir timing"
+
+    processes: 24
+    processes-per-node: 6
+    cpus-per-process: 7
+    executable_path: /gpfs/alpine/csc143/proj-shared/againaru/xcg/xcg-build/xgc-es-cpp-gpu
+    use-gpus: True
+
+    env:
+      OMP_NUM_THREADS: 14
+
+    copy-contents:
+      - /gpfs/alpine/csc143/proj-shared/againaru/xcg/input/xgc-DIIID-input-2
+
+    copy:
+      - ${prev}/timestep.dat
+
+    link:
+      - - ${prev}/restart_dir/xgc.restart.${prev-steps}.bp
+        - restart_dir/xgc.restart.${prev-steps}.bp
+      - - ${prev}/restart_dir/xgc.restart.f0.${prev-steps}.bp
+        - restart_dir/xgc.restart.f0.${prev-steps}.bp
+
+    file-edit:
+      input:
+        - ['^\s*sml_mstep\s*=.*$',      'sml_mstep=${steps}']
+        - ['^\s*sml_nphi_total\s*=.*$', 'sml_nphi_total=${nphi}']
+        - ['^\s*sml_grid_nrho\s*=.*$',  'sml_grid_nrho=${nrho}']
+        - ['^\s*diag_1d_period\s*=.*$', 'diag_1d_period=${period_1d}']
+        - ['^\s*diag_3d_period\s*=.*$', 'diag_3d_period=${period_3d}']
+        - ['^\s*diag_f3d_period\s*=.*$', 'diag_f3d_period=${period_f3d}']
+        - ['^\s*adios_stage_3d\s*=.*$', 'adios_stage_3d=.true.']
+        - ['^\s*sml_restart\s*=.*$',    'sml_restart=.true.']
+
+    .field3D:
+      output_path: xgc.3d.bp
+      adios_engine: SSC
+      adios_engine_params:
+        OpenTimeSecs: 3000
+        #DataTransport: RDMA
+        threading: "false"
+
+    .diagnosis.mesh:
+      output_path: xgc.mesh.bp
+      adios_engine: BP4
+      adios_engine_params:
+        OpenTimeSecs: 3000
+
+    .diagnosis.1d:
+      output_path: xgc.oneddiag.bp
+      adios_engine: BP4
+      adios_engine_params:
+        OpenTimeSecs: 3000
+
+  vtkm:
+    processes: 1
+    processes-per-node: 1
+    cpus-per-process: 21
+
+    copy:
+      - /gpfs/alpine/csc143/proj-shared/againaru/xcg/input/xgc-DIIID-input-2/dave.xml
+        
+    env:
+      OMP_NUM_THREADS: 21
+        
+    pre-submit-commands: ["mkdir output"]
+    executable_path: /gpfs/alpine/csc143/proj-shared/againaru/avocado/avocado-build/AvocadoVTKm
+    
+    commandline_options:
+      xml: dave.xml
+      geom: D3D
+      imageDir: output
+      imageSize: "800"
+      scalarRange: "-3000 3000"
+      dir: ${rundir}/run
+      #nphi: ${nphi}
+      
+    commandline_args:
+      - --openmp
+
+    .3d:
+      reads: xgc.field3D
+      ReadStep: false
+
+    .mesh:
+      reads: xgc.diagnosis.mesh
+
+    .oneddiag:
+      reads: xgc.diagnosis.1d
+

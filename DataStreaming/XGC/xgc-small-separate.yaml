@@ -1,0 +1,158 @@
+effisdir: /gpfs/alpine/csc143/world-shared/esuchyta/spack/opt/spack/linux-rhel7-power9le/pgi-19.10/effis-develop-rgzjnggufdzpus7pqco2wza3hjzlyxty
+mpmd: false
+machine:
+  name: summit
+  charge: csc143
+
+
+jobname: xgc-DIIID
+walltime: 1800
+
+period_1d:  1
+period_3d:  1
+period_f3d: 1
+
+steps: 5
+nphi: 4
+nrho: 3
+
+share: [vtkm, oned, plane]
+prev-steps: "00600"
+prev: /gpfs/alpine/world-shared/csc143/esuchyta/runs/xgc-DIIID-plot-400-600/xgc
+rundir: /gpfs/alpine/csc143/proj-shared/againaru/xcg/runs/demo-small-1
+
+
+dashboard:
+  use: false
+  groups: [plane.xgc-plane, oned.1D, vtkm.avocado]
+  shot_name: demo-small-1
+  run_name:  run-1
+  http: /ccs/wwwproj/phy122/esuchyta/wdmapp-dashboard/shots
+  env:
+    ADIOS: /gpfs/alpine/csc143/world-shared/esuchyta/spack/opt/spack/linux-rhel7-power9le/gcc-9.3.0/adios2-master-u7luziggweqbxj3fdu4ozqyh4yl57k63/lib/python3.8/site-packages
+
+
+run:
+
+  xgc:
+    pre-submit-commands:
+      - "mkdir restart_dir"
+      - "mkdir timing"
+
+    processes: 24
+    processes-per-node: 6
+    cpus-per-process: 7
+    executable_path: /gpfs/alpine/csc143/proj-shared/againaru/xcg/xgc-build/bin/xgc-es-cpp-gpu
+    use-gpus: True
+
+    env:
+      OMP_NUM_THREADS: 14
+
+    copy-contents:
+      - /ccs/home/esuchyta/wdmapp/xgc/config/DIIID/xgc-DIIID-input-2
+
+    copy:
+      - ${prev}/timestep.dat
+
+    link:
+      - - ${prev}/restart_dir/xgc.restart.${prev-steps}.bp
+        - restart_dir/xgc.restart.${prev-steps}.bp
+      - - ${prev}/restart_dir/xgc.restart.f0.${prev-steps}.bp
+        - restart_dir/xgc.restart.f0.${prev-steps}.bp
+
+    file-edit:
+      input:
+        - ['^\s*sml_mstep\s*=.*$',      'sml_mstep=${steps}']
+        - ['^\s*sml_nphi_total\s*=.*$', 'sml_nphi_total=${nphi}']
+        - ['^\s*sml_grid_nrho\s*=.*$',  'sml_grid_nrho=${nrho}']
+        - ['^\s*diag_1d_period\s*=.*$', 'diag_1d_period=${period_1d}']
+        - ['^\s*diag_3d_period\s*=.*$', 'diag_3d_period=${period_3d}']
+        - ['^\s*diag_f3d_period\s*=.*$', 'diag_f3d_period=${period_f3d}']
+        - ['^\s*adios_stage_3d\s*=.*$', 'adios_stage_3d=.true.']
+        - ['^\s*sml_restart\s*=.*$',    'sml_restart=.true.']
+
+    .field3D:
+      output_path: xgc.3d.bp
+      adios_engine: BP4
+      adios_engine_params:
+        OpenTimeoutSecs: 3000
+        DataTransport: RDMA
+
+    .diagnosis.mesh:
+      output_path: xgc.mesh.bp
+      adios_engine: BP4
+      adios_engine_params:
+        OpenTimeoutSecs: 3000
+
+    .diagnosis.1d:
+      output_path: xgc.oneddiag.bp
+      adios_engine: BP4
+      adios_engine_params:
+        OpenTimeoutSecs: 3000
+
+  vtkm:
+    processes: 1
+    processes-per-node: 1
+    cpus-per-process: 21
+
+    copy:
+      - /ccs/home/esuchyta/wdmapp/xgc/config/DIIID/xgc-DIIID-input-2/dave.xml
+        
+    env:
+      OMP_NUM_THREADS: 21
+        
+    pre-submit-commands: ["mkdir output"]
+    executable_path: /gpfs/alpine/csc143/proj-shared/againaru/avocado/avocado-build/AvocadoVTKm
+    
+    commandline_options:
+      xml: dave.xml
+      geom: D3D
+      imageDir: output
+      imageSize: "800"
+      scalarRange: "-3000 3000"
+      dir: ${rundir}/xgc
+      
+    commandline_args:
+      - --openmp
+
+    .3d:
+      reads: xgc.field3D
+
+    .mesh:
+      reads: xgc.diagnosis.mesh
+
+    .oneddiag:
+      reads: xgc.diagnosis.1d
+
+
+  oned:
+    executable_path: ${effisdir}/plot/effis-plot-y_vs_x.py
+    commandline_args:
+      - psi
+      - '".*"'
+    commandline_options:
+      ext: svg
+
+    copy:
+      - ${effisdir}/plot/matplotlibrc
+
+    .data:
+      reads: xgc.diagnosis.1d
+
+  plane:
+    executable_path: ${effisdir}/plot/effis-plot-xgc-plane.py
+    commandline_args:
+      - '".*"'
+    commandline_options:
+      ext: svg
+
+    copy:
+      - ${effisdir}/plot/matplotlibrc
+
+    .data:
+      reads: xgc.field3D
+
+    .mesh:
+      reads: xgc.diagnosis.mesh
+      ReadStep: false
+

@@ -96,7 +96,7 @@ cmake \
         ../vtk-avocado
 
 make -j4
-``
+```
 
 Software versions
 ```

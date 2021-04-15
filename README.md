@@ -1,7 +1,5 @@
 # ADIOS2 First steps
 
-<img src="docs/logo.png" align="right" alt="Logo" width="250"/>
-
 [[Github](https://github.com/ornladios/ADIOS2)] [[Documentation](https://adios2.readthedocs.io/en/latest/)]
 
 **List of projects**

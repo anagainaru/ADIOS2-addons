@@ -117,7 +117,24 @@ index 3cc0d4ed2..82a4e8136 100644
 
 ## Manage GPU buffers inside ADIOS
 
+### List of memory spaces for buffers allocation
+
+Define the accepted memory spaces in `source/adios2/common/ADIOSTypes.h`
+
+```diff
+enum class MemorySpace
+{
+// default memory space
+Host,
+// GPU memory spaces
+CUDA
+};
+```
+
 ### Detect the GPU buffer
+
+`Put` functions can include a memory space. Changes in 
+`bindings/CXX11/adios2/cxx11/Engine.*` and `source/adios2/core/Engine.*`.
 
 Detect for each `Put` function and mark the buffer as allocated on the device.
 

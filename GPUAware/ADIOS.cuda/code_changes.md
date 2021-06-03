@@ -3,7 +3,7 @@
 Changes to the code to allow ADIOS to receive buffers allocated in the GPU memory space in the `Put` function.
 Code is stored in the `https://github.com/anagainaru/ADIOS2` repo in branch `gpu_copy_to_host`.
 
-Currently only Cuda is supported.
+Currently only `CUDA` is supported.
 
 ## Link ADIOS with CUDA
 
@@ -119,89 +119,130 @@ index 3cc0d4ed2..82a4e8136 100644
 
 ### List of memory spaces for buffers allocation
 
-Define the accepted memory spaces in `source/adios2/common/ADIOSTypes.h`
+Define the accepted memory spaces in `source/adios2/common/ADIOSTypes.h`. For now only `CUDA` is supported. By default the `Host` memory space is chosen.
 
 ```diff
-enum class MemorySpace
-{
-// default memory space
-Host,
-// GPU memory spaces
-CUDA
-};
+diff --git a/source/adios2/common/ADIOSTypes.h b/source/adios2/common/ADIOSTypes.h
+index 8f4a9ae49..7309f5e4b 100644
+--- a/source/adios2/common/ADIOSTypes.h
++++ b/source/adios2/common/ADIOSTypes.h
+@@ -64,6 +64,15 @@ enum class Mode
+ };
+
++/** Memory space for the buffers received with Put */
++enum class MemorySpace
++{
++    // default memory space
++    Host,
++    // GPU memory spaces
++    CUDA
++};
++
+ enum class ReadMultiplexPattern
+ {
 ```
 
-### Detect the GPU buffer
+### Add a MemorySpace to an ADIOS variables
 
-`Put` functions can include a memory space. Changes in 
-`bindings/CXX11/adios2/cxx11/Engine.*` and `source/adios2/core/Engine.*`.
+**1. Create an IsGPU field within each variable**
 
-Detect for each `Put` function and mark the buffer as allocated on the device.
+Variables will contain an extra field `m_IsGPU` set by default to `false` that can be updated when setting the `CUDA` memory space.
 
 ```diff
-diff --git a/source/adios2/core/Variable.cpp b/source/adios2/core/Variable.cpp
-index a37c60c7f..f59330f60 100644
---- a/source/adios2/core/Variable.cpp
-+++ b/source/adios2/core/Variable.cpp
-@@ -49,6 +49,7 @@ namespace core
-         info.StepsCount = stepsCount;                                          \
-         info.Data = const_cast<T *>(data);                                     \
-         info.Operations = m_Operations;                                        \
-+        info.IsGPU = IsBufferOnGPU(const_cast<T *>(data));                     \
-         m_BlocksInfo.push_back(info);                                          \
-         return m_BlocksInfo.back();                                            \
-     }                                                                          \
 diff --git a/source/adios2/core/Variable.h b/source/adios2/core/Variable.h
-index 2bb5a64f1..a3e5b5f6c 100644
+index 2bb5a64f1..1e27868b2 100644
 --- a/source/adios2/core/Variable.h
 +++ b/source/adios2/core/Variable.h
-@@ -106,6 +106,7 @@ public:
-         SelectionType Selection = SelectionType::BoundingBox;
-         bool IsValue = false;
+@@ -71,6 +71,7 @@ public:
+     T m_Value = T();
++    bool m_IsGPU = false;
+
+     struct Info
+@@ -106,6 +107,7 @@ public:
          bool IsReverseDims = false;
 +        bool IsGPU = false;
      };
-@@ -147,6 +148,8 @@ public:
-     AllStepsBlocksInfo() const;
 
- private:
-+    bool IsBufferOnGPU(const T* data);
-+
-     Dims DoShape(const size_t step) const;
+     /** use for multiblock info */
+@@ -126,6 +128,7 @@ public:
+     void SetData(const T *data) noexcept;
++    void SetMemorySpace(const MemorySpace mem);
 
-     Dims DoCount() const;
-diff --git a/source/adios2/core/Variable.tcc b/source/adios2/core/Variable.tcc
-index edf7e9b5c..5362c5437 100644
---- a/source/adios2/core/Variable.tcc
-+++ b/source/adios2/core/Variable.tcc
-@@ -16,10 +16,25 @@
- #include "adios2/core/Engine.h"
- #include "adios2/helper/adiosFunctions.h"
-
-+#ifdef ADIOS2_HAVE_CUDA
-+  #include <cuda.h>
-+  #include <cuda_runtime.h>
-+#endif
-+
- namespace adios2
- {
- namespace core
- {
-+template <class T>
-+bool Variable<T>::IsBufferOnGPU(const T* data){
-+    #ifdef ADIOS2_HAVE_CUDA
-+    cudaPointerAttributes attributes;
-+    cudaPointerGetAttributes(&attributes, (const void *) data);
-+    if(attributes.devicePointer != NULL)
-+        return true;
-+    #endif
-+    return false;
-+}
-
- template <class T>
- Dims Variable<T>::DoShape(const size_t step) const
+     T *GetData() const noexcept;
 ```
-Each `blockInfo` for each `Variable` will store a boolean stating if the `Data` is a host/device buffer.
+
+The implementation for now, checked the memory space and sets the flag to `True`. In the future we will need to store the memory space so we call the corresponding functions. For now only `CUDA` is supported so a flag is enough.
+
+```diff
+diff --git a/source/adios2/core/Variable.cpp b/source/adios2/core/Variable.cpp
+index a37c60c7f..e33d8810d 100644
+--- a/source/adios2/core/Variable.cpp
++++ b/source/adios2/core/Variable.cpp
+@@ -23,6 +23,20 @@ namespace core
+                                                                                \
++    template <>                                                                \
++    void Variable<T>::SetMemorySpace(const MemorySpace mem)                    \
++    {                                                                          \
++        switch(mem)                                                            \
++        {                                                                      \
++            case MemorySpace::CUDA:                                            \
++                m_IsGPU = true;                                                \
++                break;                                                         \
++            default:                                                           \
++                m_IsGPU = false;                                               \
++        }                                                                      \
++        std::cout << "GPU" << m_IsGPU << std::endl;                            \
++    }                                                                          \
++                                                                               \
+     template <>                                                                \
+     Variable<T>::Variable(const std::string &name, const Dims &shape,          \
+@@ -49,6 +63,7 @@ namespace core
+         info.Operations = m_Operations;                                        \
++        info.IsGPU = m_IsGPU;                                                  \
+         m_BlocksInfo.push_back(info);                                          \
+     }                                                                          \
+```
+
+Each `blockInfo` for each `Variable` will store a boolean stating if the `Data` is a host/device buffer based on the value in the variable `IsGPU` flag. 
+
+
+**2. Update CXX bindings to propagate info about the MemorySpace**
+
+For C++ codes using ADIOS, update the `Variable.{c|h}` functions to include the `SetMemorySpace` function.
+
+```diff
+diff --git a/bindings/CXX11/adios2/cxx11/Variable.h b/bindings/CXX11/adios2/cxx11/Variable.h
+index c1928f47c..63afadfa8 100644
+--- a/bindings/CXX11/adios2/cxx11/Variable.h
++++ b/bindings/CXX11/adios2/cxx11/Variable.h
+@@ -196,6 +196,11 @@ public:
+     void SetStepSelection(const adios2::Box<size_t> &stepSelection);
+
++    /**
++     * Sets the memory step for all following Puts
++     */
++    void SetMemorySpace(const MemorySpace mem);
++
+     /**
+      * Returns the number of elements required for pre-allocation based on
+diff --git a/bindings/CXX11/adios2/cxx11/Variable.cpp b/bindings/CXX11/adios2/cxx11/Variable.cpp
+index fdbccb525..c55c76597 100644
+--- a/bindings/CXX11/adios2/cxx11/Variable.cpp
++++ b/bindings/CXX11/adios2/cxx11/Variable.cpp
+@@ -32,6 +32,14 @@ namespace adios2
+}
+
++     template <>                                                               \
++    void Variable<T>::SetMemorySpace(const MemorySpace mem)                    \
++    {                                                                          \
++        helper::CheckForNullptr(m_Variable,                                    \
++                                "in call to Variable<T>::SetShape");           \
++        m_Variable->SetMemorySpace(mem);                                       \
++    }                                                                          \
+                                                                                \
+     template <>                                                                \
+     void Variable<T>::SetShape(const Dims &shape)                              \
+```
 
 ### Add a copy function from the GPU to the ADIOS buffer
 
@@ -413,6 +454,7 @@ new file mode 100644
 + 
 @@ -17,6 +1,113 @@
 + bpWriter.BeginStep();
++ data.SetMemorySpace(adios2::MemorySpace::CUDA);
 +	bpWriter.Put(data, gpuSimData);
 + bpWriter.EndStep();
 + update_array<<<N,1>>>(gpuSimData, 1);

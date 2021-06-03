@@ -6,7 +6,7 @@
 
 **Code**
 
-Changes to the code to allow ADIOS to receive buffers allocated in the GPU memory space in the Put function. Code is stored in the https://github.com/anagainaru/ADIOS2 repo in branch `gpu_copy_to_host`. Description of the changes can be found in this folder, here: [code_changes.md](https://github.com/anagainaru/ADIOS2-addons/blob/gpuaware/GPUAware/ADIOS.cuda/code_changes.md)
+Changes to the code to allow ADIOS to receive buffers allocated in the GPU memory space in the Put function. Code is stored in the https://github.com/anagainaru/ADIOS2 repo in branch `gpu_copy_to_host`. Description of the changes can be found in this folder, here: [code_changes.md](https://github.com/anagainaru/ADIOS2-addons/blob/main/GPUAware/ADIOS.cuda/code_changes.md)
 
 **Performance**
 

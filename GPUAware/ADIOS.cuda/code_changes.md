@@ -117,6 +117,11 @@ index 3cc0d4ed2..82a4e8136 100644
 
 ## Manage GPU buffers inside ADIOS
 
+<img width="500" alt="ADIOS CUDA aware implementation" src="https://user-images.githubusercontent.com/16229479/125333190-f17a2900-e317-11eb-9fd0-69722cdf0e06.png">
+
+ADIOS variables keeps a memory space (by default Host). Each blockInfo within a Variable has a flag
+	`info.IsGPU = IsBufferOnGPU(data)`. The ADIOS Variable implements IsBufferOnGPU(data) based on the memory space. If memory space is set to `Detect`, ADIOS detects automatically the provenance, otherwise trusts the user
+ 
 ### List of memory spaces for buffers allocation
 
 Define the accepted memory spaces in `source/adios2/common/ADIOSTypes.h`. For now only `CUDA` is supported. By default the `Host` memory space is chosen.

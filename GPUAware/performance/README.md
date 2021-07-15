@@ -45,4 +45,4 @@ Measure the performance of writing an array of N floats residing on GPU memory s
 4. CPU ADIOS: Send the CPU buffer to ADIOS
 
 Fig 1. Write total simulation performance for GDS ADIOS
-![Write performance](https://github.com/anagainaru/ADIOS2-addons/blob/main/GPUAware/docs/gds_write.png)
+![Write performance](https://github.com/anagainaru/ADIOS2-addons/blob/main/GPUAware/docs/gds_write_perf.png)

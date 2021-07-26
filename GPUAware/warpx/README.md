@@ -18,6 +18,42 @@ This library provides a reference API for openPMD data handling. Since openPMD i
 
 Using the example in `openPMD-api/examples/8a_benchmark_write_parallel.cpp` to test if openPMD works with GPU buffers.
 
+```c++
+Series series = Series(filename, Access::CREATE, MPI_COMM_WORLD);
+series.setMeshesPath( "fields" );
+store(series, step); // includes storeMesh and storeParticle
+
+// Both store functions create data and use storeChunk to write data
+auto A = createData<double>( blockSize, value, 0.0001 ) ;
+compA.storeChunk( A, meshOffset, meshExtent );
+```
+Create data returns a shared pointer `shared_ptr` of given size  with given type & default value.
+```c++
+template<typename T>
+std::shared_ptr< T > createData(const unsigned long& size,  const T& val, const T& increment)
+
+for(unsigned long  i = 0ul; i < size; i++ )
+{
+    if (increment != 0)
+      E.get()[i] = val+i*increment;
+    else
+      E.get()[i] = val;
+}
+```
+The `storeChunk` function
+```c++
+std::shared_ptr< std::queue< IOTask > > m_chunks;
+
+template< typename T >
+    void storeChunk(std::shared_ptr< T > data, Offset o, Extent e);
+
+    Parameter< Operation::WRITE_DATASET > dWrite;
+    dWrite.offset = o;
+    dWrite.extent = e;
+    dWrite.dtype = dtype;
+    dWrite.data = std::static_pointer_cast< void const >(data);
+    m_chunks->push(IOTask(this, dWrite));
+```
 
 ## Data
 

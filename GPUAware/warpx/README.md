@@ -14,6 +14,15 @@ See [the openPMD standard](https://github.com/openPMD/openPMD-standard) for deta
 
 This library provides a reference API for openPMD data handling. Since openPMD is a schema (or markup) on top of portable, hierarchical file formats, this library implements various backends such as HDF5, ADIOS1, ADIOS2 and JSON. 
 
+**Build on Summit**
+
+The path to ADIOS needs to be added in LD_PATH
+```bash
+export ADIOS2_DIR=/ccs/home/againaru/adios/ADIOS2-cuda/install
+export LD_LIBRARY_PATH=${ADIOS2_DIR}/lib64/:${LD_LIBRARY_PATH}
+cmake ..
+```
+
 **GPU buffers**
 
 Using the example in `openPMD-api/examples/8a_benchmark_write_parallel.cpp` to test if openPMD works with GPU buffers.

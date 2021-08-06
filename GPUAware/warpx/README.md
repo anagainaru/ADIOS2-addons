@@ -18,10 +18,24 @@ This library provides a reference API for openPMD data handling. Since openPMD i
 
 The path to ADIOS needs to be added in LD_PATH
 ```bash
+module load gcc cuda cmake 
+
+export CC=gcc
+export FC=gfortran
+export CXX=g++ 
+
 export ADIOS2_DIR=/ccs/home/againaru/adios/ADIOS2-cuda/install
 export LD_LIBRARY_PATH=${ADIOS2_DIR}/lib64/:${LD_LIBRARY_PATH}
+module load cuda
+module load gcc
+module load cmake
+
 cmake ..
+make -j4
 ```
+
+ADIOS must be compiled with the same gcc version.
+
 
 **GPU buffers**
 

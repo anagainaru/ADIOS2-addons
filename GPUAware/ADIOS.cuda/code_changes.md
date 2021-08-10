@@ -283,8 +283,6 @@ index fdbccb525..c55c76597 100644
 +     template <>                                                               \
 +    void Variable<T>::SetMemorySpace(const MemorySpace mem)                    \
 +    {                                                                          \
-+        helper::CheckForNullptr(m_Variable,                                    \
-+                                "in call to Variable<T>::SetShape");           \
 +        m_Variable->SetMemorySpace(mem);                                       \
 +    }                                                                          \
                                                                                 \

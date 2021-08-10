@@ -162,7 +162,7 @@ index 19a467b..58447bf 100644
 @@ -46,7 +46,7 @@ public:
       *  VariableCompound -> from constructor sizeof(struct) */
      const size_t m_ElementSize;
-+    MemorySpace m_MemorySpace = MemorySpace::Host;
++    MemorySpace m_MemorySpace = MemorySpace::Detect;
 
      ShapeID m_ShapeID = ShapeID::Unknown; ///< see shape types in ADIOSTypes.h
 @@ -125,7 +130,7 @@ public:
@@ -218,40 +218,34 @@ index a37c60c7f..e33d8810d 100644
 +++ b/source/adios2/core/Variable.cpp
 @@ -49,6 +63,7 @@ namespace core
          info.Operations = m_Operations;                                        \
-+        info.IsGPU = IsBufferOnGPU(data);                                      \
++        info.IsGPU = IsCUDAPointer((void *) data);                             \
          m_BlocksInfo.push_back(info);                                          \
      }                                                                          \
 diff --git a/source/adios2/core/Variable.tcc b/source/adios2/core/Variable.tcc
 index ccfc5a4..401cdcc 100644
---- a/source/adios2/core/Variable.tcc
-+++ b/source/adios2/core/Variable.tcc
+--- a/source/adios2/core/VariableBase.cpp
++++ b/source/adios2/core/VariableBase.cpp
 @@ -22,6 +22,26 @@ namespace core
- {
+    InitShapeType();
+}
 
-+template <class T>
-+bool Variable<T>::IsBufferOnGPU(const T* data) const
-+{
++ bool VariableBase::IsCUDAPointer(void *ptr)
++ {
 +    if( m_MemorySpace == MemorySpace::CUDA )
 +        return true;
 +    if( m_MemorySpace == MemorySpace::Host )
 +        return false;
 +
 +    #ifdef ADIOS2_HAVE_CUDA
-+    cudaPointerAttributes attributes;
-+    cudaError_t status = cudaPointerGetAttributes(
-+        &attributes, (const void *) data);
-+    if (status != 0)
-+        return false;
-+    if(attributes.devicePointer != NULL)
-+        return true;
++    cudaPointerAttributes attr;
++    cudaPointerGetAttributes(&attr, ptr);
++    return attr.type == cudaMemoryTypeDevice;
 +    #endif
-+    return false;
-+}
 +
- template <class T>
- Dims Variable<T>::DoShape(const size_t step) const
- {
-     CheckRandomAccess(step, "Shape");
++    return false;
++ }
+
+size_t VariableBase::TotalSize() const noexcept
 ```
 
 **2. Update CXX bindings to propagate info about the MemorySpace**

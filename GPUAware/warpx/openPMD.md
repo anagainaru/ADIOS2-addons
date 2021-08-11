@@ -85,7 +85,7 @@ then the file generated are: `../samples/8a_parallel_3Db_*`
 
 ### Changes to the write benchmark
 
-The `createData` function will return a shared pointer to a GPU buffer.
+Adding a new function `createCUDAData` that will return a shared pointer to a GPU buffer.
 
 ```c++
 template<typename T>
@@ -107,6 +107,27 @@ std::shared_ptr< T > createCUDAData(const unsigned long& size,  const T& val, co
         (T *) E, []( T *d ) {cudaFree(d);}
     };
   }
+```
+
+The initial `createData` will still allocate and initialize data on the GPU but will return a CPU pointer with the data.
+
+```c++
+template<typename T>
+std::shared_ptr< T > createData(const unsigned long& size,  const T& val, const T& increment)
+  {
+    void *E;
+
+    cudaMalloc(&E, size * sizeof(T));
+    cudaMemset(E, 0, size * sizeof(T));
+    update_array<<<size,1>>>((T *) E, val, increment);
+
+    T *hostPtr = (T *) malloc(size * sizeof(T));
+    cudaMemcpy(hostPtr, E, size * sizeof(T), cudaMemcpyDeviceToHost);
+
+    return std::shared_ptr< T > {
+        hostPtr, []( T *d ) {free(d);}
+    };
+}
 ```
 
 Compile the new example using CUDA.

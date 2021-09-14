@@ -172,3 +172,20 @@ index 9f8e0d4..c34d1df 100644
 +endif()
 +
 ```
+
+## Runs on Summit
+
+### Writing
+
+1. Test performance with different steps by changing the `steps` value in the input file. 
+
+2. Test performance with different problem size (achieved by increasing both minBlocks and grid). Example: 
+```
+minBlock=32 32 32
+grid=32 32 32
+```
+will create a mesh that is 1024x1024x1024, and a variable with type double on this mesh is 8GB. 
+If grid=64 32 32, with the same minBlock, then the mesh will be 2048x1024x1024, the corresponding variable size will be 16GB.
+A particle is of 1 dimension, with `size = ratio * size of mesh`. 
+
+3. Test performance with different processes involved in the computation

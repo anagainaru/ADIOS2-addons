@@ -188,11 +188,12 @@ export CXX=g++ 
 export ADIOS2_DIR=/path/to/ADIOS2/install
 export LD_LIBRARY_PATH=${ADIOS2_DIR}/lib64/:${LD_LIBRARY_PATH}
 cmake ..
+make -j4
 ```
 
 **Testcases**
-Compare the performance of openPMD for the inital ADIOS with GPU aware ADIOS using CPU buffers (using `8a_benchmark_write_parallel`).
-Run the modified code (using the changes above) `13_benchmark_write_cuda` to test GPU aware ADIOS using GPU buffers.
+Compare the performance of openPMD for the inital ADIOS with GPU aware ADIOS using CPU buffers (using `./bin/8a_benchmark_write_parallel`).
+Run the modified code (using the changes above) `./bin/13_benchmark_write_cuda` to test GPU aware ADIOS using GPU buffers.
 
 1. Test performance with different steps by changing the `steps` value in the input file. 
 

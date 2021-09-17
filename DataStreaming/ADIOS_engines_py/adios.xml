@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<adios-config>
+    <io name="test">
+      <engine type="sst">
+	<parameter key="RendezvousReaderCount" value="2"/>
+        </engine>
+    </io>
+</adios-config>

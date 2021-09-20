@@ -66,3 +66,26 @@ Lipeng scenarios
 
 **Application runs**
 XGC with Avocado in different formats
+
+
+## Code changes
+
+**For one writer multiple readers**
+
+The RendezvousReaderCount parameter needs to be set to 2 in the adios configuration XML file.
+
+```
+$ vim adios.xml
+<parameter key="RendezvousReaderCount" value="2"/>
+```
+or the code needs to set the parameters manually
+```c++
+adios2::Params NoReaders = {{"RendezvousReaderCount", "2"}};
+sstIO.SetParameters(NoReaders);
+```
+Two instances of the reader need to be executed.
+
+path_to_ADIOS2/build/bin/hello_sstWriter & 
+path_to_ADIOS2/build/bin/hello_sstReader & 
+path_to_ADIOS2/build/bin/hello_sstReader
+

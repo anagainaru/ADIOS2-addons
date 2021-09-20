@@ -13,7 +13,7 @@ count = [nx]
 NSteps = int(sys.argv[2])
 
 # with-as will call adios2.close on fh at the end
-with adios2.open("cfd.sst", "w", engine_type="sst") as fh:
+with adios2.open("cfd.sst", "w", config_file="adios.xml", io_in_config_file="test") as fh:
    # NSteps from application
    for i in range(0, NSteps):
       fh.write("physical_time", np.array([100]) )

@@ -209,3 +209,20 @@ A particle is of 1 dimension, with `size = ratio * size of mesh`.
 3. Test performance with different processes involved in the computation
 
 **Results**
+
+```
+GPU benchmark GPU Buffers
+Global: [ 1024 1024 1024 ]  Block: [ 32 32 32 ]   Unit: [ 32 32 32 ]
+  [Writing: ../samples/8a_parallel_3Db_%07T.bp] took:484.533 seconds
+  [  Main  ] took:484.71 seconds
+
+GPU benchmark memcpy + CPU Buffers
+Global: [ 1024 1024 1024 ]  Block: [ 32 32 32 ]   Unit: [ 32 32 32 ]
+  [Writing: ../samples/8a_parallel_1632074608_3Db_%07T.bp] took:640.551 seconds
+  [  Main  ] took:640.697 seconds
+
+Initial benchmark CPU Buffers
+Global: [ 1024 1024 1024 ]  Block: [ 32 32 32 ]   Unit: [ 32 32 32 ]
+  [Writing: ../samples/8a_parallel_3Db_%07T.bp] took:489.185 seconds
+  [  Main  ] took:489.371 seconds
+```

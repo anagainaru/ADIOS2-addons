@@ -172,3 +172,44 @@ index 9f8e0d4..c34d1df 100644
 +endif()
 +
 ```
+
+## Runs on Summit
+
+### Writing
+
+**Compilation**
+```
+module load gcc cuda cmake 
+
+export CC=gcc
+export FC=gfortran
+export CXX=g++ 
+
+export ADIOS2_DIR=/path/to/ADIOS2/install
+export LD_LIBRARY_PATH=${ADIOS2_DIR}/lib64/:${LD_LIBRARY_PATH}
+cmake ..
+make -j4
+```
+
+**Testcases**
+Compare the performance of openPMD for the inital ADIOS with GPU aware ADIOS using CPU buffers (using `./bin/8a_benchmark_write_parallel`).
+Run the modified code (using the changes above) `./bin/13_benchmark_write_cuda` to test GPU aware ADIOS using GPU buffers.
+
+1. Test performance with different steps by changing the `steps` value in the input file. 
+
+2. Test performance with different problem size (achieved by increasing both minBlocks and grid). Example: 
+```
+minBlock=32 32 32
+grid=32 32 32
+```
+will create a mesh that is 1024x1024x1024, and a variable with type double on this mesh is 8GB. 
+If grid=64 32 32, with the same minBlock, then the mesh will be 2048x1024x1024, the corresponding variable size will be 16GB.
+A particle is of 1 dimension, with `size = ratio * size of mesh`. 
+
+3. Test performance with different processes involved in the computation
+
+**Results**
+
+<img src="https://user-images.githubusercontent.com/16229479/135462288-11b4f5b6-6ef3-488b-b1ed-b5f76024a78d.png" width="500" />
+
+```

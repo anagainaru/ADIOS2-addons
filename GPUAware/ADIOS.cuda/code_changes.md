@@ -444,6 +444,7 @@ index 8414fa6eb..11b127add 100644
  {
      const size_t blockSize = helper::GetTotalSize(blockInfo.Count);
      m_Profiler.Start("memcpy");
++#ifdef ADIOS2_HAVE_CUDA
 +    if(blockInfo.IsGPU){
 +        helper::CopyFromGPUToBuffer(m_Data.m_Buffer, m_Data.m_Position,
 +                     blockInfo.Data, blockSize);
@@ -451,6 +452,7 @@ index 8414fa6eb..11b127add 100644
 +        m_Data.m_AbsolutePosition += blockSize * sizeof(T);
 +        return;
 +    }
++#endif
      if (!blockInfo.MemoryStart.empty())
      {
          helper::CopyMemoryBlock(

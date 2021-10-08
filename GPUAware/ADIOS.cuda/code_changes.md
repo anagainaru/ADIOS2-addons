@@ -52,13 +52,19 @@ index ca449feee..38c1f9cee 100644
  
  set(mpi_find_components C)
  
+ diff --git a/cmake/DetectOptions.cmake b/cmake/DetectOptions.cmake
+index 94ce684e9..78a50e3e5 100644
+--- a/cmake/DetectOptions.cmake
++++ b/cmake/DetectOptions.cmake
+@@ -143,9 +143,9 @@ set(mpi_find_components C)
+   
 +# Cuda
 +if(ADIOS2_USE_CUDA STREQUAL AUTO)
-+  find_package(CUDA)
++  find_package(CUDAToolkit)
 +elseif(ADIOS2_USE_CUDA)
-+  find_package(CUDA REQUIRED)
++  find_package(CUDAToolkit REQUIRED)
 +endif()
-+if(CUDA_FOUND)
++if(CUDAToolkit_FOUND)
 +  set(ADIOS2_HAVE_CUDA TRUE)
 +endif()
 +
@@ -81,8 +87,7 @@ index 2b3a84447..b1f90830f 100644
  set_property(TARGET adios2_core PROPERTY OUTPUT_NAME adios2${ADIOS2_LIBRARY_SUFFIX}_core)
  
 +if(ADIOS2_HAVE_CUDA)
-+  target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
-+  target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
++  target_link_libraries(adios2_core PUBLIC CUDA::cudart CUDA::cuda_driver)
 +endif()
 +
  target_include_directories(adios2_core
@@ -109,8 +114,7 @@ index 3cc0d4ed2..82a4e8136 100644
 
  if(ADIOS2_HAVE_CUDA)
 +  enable_language(CUDA)
-   target_include_directories(adios2_core PUBLIC ${CUDA_INCLUDE_DIRS})
-   target_link_libraries(adios2_core PUBLIC ${CUDA_LIBRARIES})
+   target_link_libraries(adios2_core PUBLIC CUDA::cudart CUDA::cuda_driver)
 +  set_target_properties(adios2_core PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
  endif()
 ```

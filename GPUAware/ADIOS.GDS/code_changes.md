@@ -1,3 +1,4 @@
+```diff
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 5d327a8ba..458ef87c8 100644
 --- a/CMakeLists.txt
@@ -273,4 +274,4 @@ index f2540258c..38aa06353 100644
 +
      CommonChecks(variable, data, {{Mode::Write, Mode::Append}},
                   "in call to Put");
- 
+ ```

@@ -13,7 +13,7 @@ count = [nx]
 
 # with-as will call adios2.close on fh at the end
 # if only one rank is active pass MPI.COMM_SELF
-with adios2.open("cfd.sst", "r", engine_type="sst") as fh:
+with adios2.open("cfd.sst", "r", config_file="adios.xml", io_in_config_file="test") as fh:
     for fstep in fh:
 
     # inspect variables in current step

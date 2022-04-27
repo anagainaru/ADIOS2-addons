@@ -4,6 +4,9 @@ Two scenarios:
 1. The application is giving Kokkos View to the Get/Put ADIOS functions instead of GPU buffers
 2. ADIOS is build with Kokkos enabled
 
+**Assumptions**
+Multiple backends can be enabled during compilation but only one will be used during execution (i.e. pure CUDA code).
+
 ## 1. Kokkos View buffers
 
 The simple solution overloads the Put/Get functions to work with `Kokkos::View` and simply

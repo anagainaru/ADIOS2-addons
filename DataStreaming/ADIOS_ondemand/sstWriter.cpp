@@ -24,12 +24,20 @@ int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+        std::cout << "Usage: " << argv[0] << " array_size number_variables [process name]"
                   << std::endl;
+        std::cout << "If the name is provided the code is ran in debug mode" << std::endl;
         return -1;
     }
     const size_t Nx = atoi(argv[1]);
     const size_t variablesSize = atoi(argv[2]);
+    std::string name;
+    unsigned int debug = 0;
+    if (argc > 3)
+    {
+        name = argv[3];
+        debug = 1;
+    }
 
     int rank = 0, size = 1;
     int total_steps = 100;
@@ -53,8 +61,6 @@ int main(int argc, char *argv[])
                                                       {rank * Nx}, {Nx});
         }
 
-        // Create engine smart pointer to Sst Engine due to polymorphism,
-        // Open returns a smart pointer to Engine containing the Derived class
         adios2::Engine sstWriter = sstIO.Open("helloSst", adios2::Mode::Write);
         double put_time = 0;
         auto start_step = std::chrono::steady_clock::now();

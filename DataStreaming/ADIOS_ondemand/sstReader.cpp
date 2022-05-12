@@ -11,19 +11,25 @@ int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        std::cout << "Usage: " << argv[0] << " array_size number_variables"
+        std::cout << "Usage: " << argv[0] << " array_size number_variables [process name]"
                   << std::endl;
+        std::cout << "If the name is provided the code is ran in debug mode" << std::endl;
         return -1;
     }
     const size_t Nx = atoi(argv[1]);
     const size_t variablesSize = atoi(argv[2]);
+    std::string name;
+    unsigned int debug = 0;
+    if (argc > 3)
+    {
+        name = argv[3];
+        debug = 1;
+    }
 
     int rank = 0, size = 1;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    std::vector<float> myFloats;
 
     try
     {

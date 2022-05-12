@@ -40,12 +40,12 @@ int main(int argc, char *argv[])
     }
 
     int rank = 0, size = 1;
-    int total_steps = 100;
+    int total_steps = 6;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    auto myFloats = create_random_data(Nx);
+    auto myFloats = create_random_data(Nx * variablesSize);
 
     try
     {
@@ -69,11 +69,15 @@ int main(int argc, char *argv[])
             sstWriter.BeginStep();
             for (unsigned int v = 0; v < variablesSize; ++v)
             {
-                myFloats[rank] += static_cast<float>(v + rank);
+                myFloats[v * Nx] = v + timeStep * variablesSize;
                 auto start_put = std::chrono::steady_clock::now();
-                sstWriter.Put<float>(sstFloats[v], myFloats.data());
+                sstWriter.Put<float>(sstFloats[v], myFloats.data() + v * Nx);
                 auto end_put = std::chrono::steady_clock::now();
                 put_time += (end_put - start_put).count() / 1000;
+                if (debug == 1){
+                    std::cout << "p0: Put step " << timeStep << " variable"
+                        << v << " " << myFloats[v * Nx] << std::endl;
+                }
             }
             sstWriter.EndStep();
         }

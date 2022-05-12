@@ -43,12 +43,13 @@ int main(int argc, char *argv[])
         const adios2::Dims pos_start{my_start};
         const adios2::Dims count{Nx};
         const adios2::Box<adios2::Dims> sel(pos_start, count);
-        myFloats.resize(Nx);
 
         auto start_step = std::chrono::steady_clock::now();
         int steps = 0;
+        std::vector<float> myFloats(variablesSize * Nx);
         while (sstReader.BeginStep() == adios2::StepStatus::OK)
         {
+            size_t currentStep = sstReader.CurrentStep();
             for (unsigned int v = 0; v < variablesSize; ++v)
             {
                 std::string namev("sstFloats");
@@ -58,12 +59,20 @@ int main(int argc, char *argv[])
 
                 sstFloats.SetSelection(sel);
                 auto start_get = std::chrono::steady_clock::now();
-                sstReader.Get(sstFloats, myFloats.data());
+                sstReader.Get(sstFloats, myFloats.data() + (v * Nx));
                 auto end_get = std::chrono::steady_clock::now();
                 get_time += (end_get - start_get).count() / 1000;
             }
             sstReader.EndStep();
             steps += 1;
+            if (debug == 1){
+                for (unsigned int v = 0; v < variablesSize; ++v)
+                {
+                    std::cout << name << ": Get step " << currentStep
+                        << " variable" << v << " " << myFloats[v * Nx]
+                        << std::endl;
+                }
+            }
         }
         auto end_step = std::chrono::steady_clock::now();
         double total_time = (end_step - start_step).count() / (size * 1000);

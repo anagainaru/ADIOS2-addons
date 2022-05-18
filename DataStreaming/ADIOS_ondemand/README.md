@@ -136,3 +136,24 @@ Writer 0 (0x7f8ede42aaa0): Writer tagging timestep 3 as expired
 DP Writer 0 (0x7f8ede42aaa0): Releasing timestep 3
 Remove queue Entries removing Timestep 3 (exp 1, Prec 0, Ref 0), Count now 2
 ```
+
+Differences between steps
+```
+$ cat sst.log | grep "Sending Speculative Preload messages"
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8eee436160, timestep 0
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8ede436e60, timestep 1
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8eee436160, timestep 2
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8ede436e60, timestep 2
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8eee436160, timestep 2
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8ede436e60, timestep 4
+DP Writer 0 (0x7f8ede42aaa0): Sending Speculative Preload messages, reader 0x7f8ede436e60, timestep 5
+
+$ cat sst.log | grep "Received a Timestep metadata message for timestep"
+Reader 0 (0x7f9cf9740510): Received a Timestep metadata message for timestep 0, signaling condition
+Reader 0 (0x7fa407526810): Received a Timestep metadata message for timestep 1, signaling condition
+Reader 0 (0x7f9cf9740510): Received a Timestep metadata message for timestep 2, signaling condition
+Received a Timestep metadata message for timestep 2, signaling condition
+Reader 0 (0x7f9cf9740510): Received a Timestep metadata message for timestep 2, signaling condition
+Reader 0 (0x7fa407526810): Received a Timestep metadata message for timestep 4, signaling condition
+Reader 0 (0x7fa407526810): Writer 0 (0x7f8ede42aaa0): Received a Timestep metadata message for timestep 5, signaling condition
+```

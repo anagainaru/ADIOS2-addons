@@ -1,5 +1,25 @@
 # GPU-aware ADIOS with Kokkos
 
+## Install ADIOS with Kokkos
+
+Install Kokkos
+```
+cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON
+
+cmake --build build --parallel 6
+cmake --install build
+```
+
+Install ADIOS
+```
+cmake -DKokkos_ROOT=/path/to/kokkos/install -DADIOS2_USE_Kokkos=ON  ../ADIOS2/
+make -j4
+cmake -D CMAKE_INSTALL_PREFIX=${ADIOS_HOME}/install
+make install
+```
+
+## Design ADIOS with Kokkos
+
 Two scenarios:
 1. The application is giving Kokkos View to the Get/Put ADIOS functions instead of GPU buffers
 2. ADIOS is build with Kokkos enabled

@@ -1,11 +1,16 @@
-[Code changes to allow ADIOS to be build with Kokkos]()
- - [Build ADIOS with Kokkos]()
+# ADIOS with Kokkos
 
-[Code changes to allow Kokkos views in Put and Get]()
+- [Code changes to allow ADIOS to be build with Kokkos](#code-changes-to-allow-adios-to-be-build-with-kokkos)
+- [Code changes to allow Kokkos views in Put and Get](#code-changes-to-allow-kokkos-views-in-put-and-get)
 
-# Code changes to allow ADIOS to be build with Kokkos
 
-## Link ADIOS with Kokkos 
+**Building ADIOS with Kokkos** 
+
+  ```bash
+  cmake -DKokkos_ROOT=/path/to/kokkos/install -DADIOS2_USE_Kokkos=ON  ../ADIOS2/
+  ```
+
+## Code changes to allow ADIOS to be build with Kokkos
 
 Similar to linking CUDA, the code changes find the Kokkos package and link it with the `adios2_core` executable.
 
@@ -58,14 +63,8 @@ index d4e2e5dbf..da9300ca1 100644
  if(ADIOS2_USE_Fortran STREQUAL AUTO)
    include(CheckLanguage)
    ```
-   
-  ## Building ADIOS with Kokkos
   
-  ```bash
-  cmake -DKokkos_ROOT=/path/to/kokkos/install -DADIOS2_USE_Kokkos=ON  ../ADIOS2/
-  ```
-  
-  # Code changes to allow Kokkos views in Put and Get
+## Code changes to allow Kokkos views in Put and Get
   
   Link the C++ bindings with Kokkos
   

@@ -6,6 +6,8 @@
 
 **Building ADIOS with Kokkos** 
 
+Kokkos needs to be build with the memory spaces needed by the application.
+
   ```bash
   cmake -DKokkos_ROOT=/path/to/kokkos/install -DADIOS2_USE_Kokkos=ON  ../ADIOS2/
   ```

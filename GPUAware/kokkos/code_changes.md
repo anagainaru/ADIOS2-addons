@@ -100,14 +100,14 @@ index 1b140309e..6d58b8ddd 100644
  }
 
 +#ifdef ADIOS2_HAVE_KOKKOS
-+#define declare_template_instantiation(T)                                      \
-+    template void Engine::Put<T>(Variable<T>, Kokkos::View<T *>, const Mode);  \
-+    template void Engine::Put<T>(const std::string &, Kokkos::View<T *>, const Mode);  \
++#define declare_template_instantiation(T, MemSpace)                            \
++    template void Engine::Put<T, MemSpace>(                                    \
++        Variable<T>, Kokkos::View<T *, MemSpace>, const Mode);                 \
 +                                                                               \
-+    template void Engine::Get<T>(Variable<T>, Kokkos::View<T *>, const Mode);  \
-+    template void Engine::Get<T>(const std::string &, Kokkos::View<T *>, const Mode);
++    template void Engine::Get<T, MemSpace>(                                    \
++        Variable<T>, Kokkos::View<T *, MemSpace>, const Mode);
 +
-+ADIOS2_FOREACH_TYPE_1ARG(declare_template_instantiation)
++ADIOS2_FOREACH_KOKKOS_TYPE_2ARGS(declare_template_instantiation)
 +#undef declare_template_instantiation
 +#endif
 +
@@ -137,18 +137,12 @@ index 166679c79..bd50aca24 100644
 
 +#ifdef ADIOS2_HAVE_KOKKOS
 +    /** Get and Put functions for Kokkos buffers */
-+    template <class T>
-+    void Put(Variable<T> variable, Kokkos::View<T *> data, const Mode launch = Mode::Deferred);
-+
-+    template <class T>
-+    void Put(const std::string &variableName, Kokkos::View<T *> data, const Mode launch = Mode::Deferred);
-+
-+    template <class T>
-+    void Get(Variable<T> variable, Kokkos::View<T *> data,
++    template <class T, class MemSpace>
++    void Put(Variable<T> variable, Kokkos::View<T *, MemSpace> data,
 +             const Mode launch = Mode::Deferred);
 +
-+    template <class T>
-+    void Get(const std::string &variableName, Kokkos::View<T *> data,
++    template <class T, class MemSpace>
++    void Get(Variable<T> variable, Kokkos::View<T *, MemSpace> data,
 +             const Mode launch = Mode::Deferred);
 +#endif
 +
@@ -167,24 +161,16 @@ index e7bcebd91..734363dc7 100644
  }
 
 +#ifdef ADIOS2_HAVE_KOKKOS
-+template <class T>
-+void Engine::Put(const std::string &variableName, Kokkos::View<T *> data, const Mode launch)
-+{
-+    using IOType = typename TypeInfo<T>::IOType;
-+    adios2::helper::CheckForNullptr(m_Engine, "in call to Engine::Put");
-+    m_Engine->Put(variableName, reinterpret_cast<const IOType *>(data.data()),
-+                  launch);
-+}
-+
-+template <class T>
-+void Engine::Put(Variable<T> variable, Kokkos::View<T *> data, const Mode launch)
++template <class T, class MemSpace>
++void Engine::Put(Variable<T> variable, Kokkos::View<T *, MemSpace> data,
++                 const Mode launch)
 +{
 +    using IOType = typename TypeInfo<T>::IOType;
 +    adios2::helper::CheckForNullptr(m_Engine, "in call to Engine::Put");
 +    adios2::helper::CheckForNullptr(variable.m_Variable,
 +                                    "for variable in call to Engine::Put");
-+    m_Engine->Put(*variable.m_Variable, reinterpret_cast<const IOType *>(data.data()),
-+                  launch);
++    m_Engine->Put(*variable.m_Variable,
++                  reinterpret_cast<const IOType *>(data.data()), launch);
 +}
 +#endif
 +
@@ -196,23 +182,15 @@ index e7bcebd91..734363dc7 100644
  }
 
 +#ifdef ADIOS2_HAVE_KOKKOS
-+template <class T>
-+void Engine::Get(Variable<T> variable, Kokkos::View<T *> data, const Mode launch)
++template <class T, class MemSpace>
++void Engine::Get(Variable<T> variable, Kokkos::View<T *, MemSpace> data,
++                 const Mode launch)
 +{
 +    adios2::helper::CheckForNullptr(variable.m_Variable,
 +                                    "for variable in call to Engine::Get");
 +    using IOType = typename TypeInfo<T>::IOType;
 +    adios2::helper::CheckForNullptr(m_Engine, "in call to Engine::Get");
 +    m_Engine->Get(*variable.m_Variable, reinterpret_cast<IOType *>(data.data()),
-+            launch);
-+}
-+
-+template <class T>
-+void Engine::Get(const std::string &variableName, Kokkos::View<T *> data, const Mode launch)
-+{
-+    using IOType = typename TypeInfo<T>::IOType;
-+    adios2::helper::CheckForNullptr(m_Engine, "in call to Engine::Get");
-+    m_Engine->Get(variableName, reinterpret_cast<IOType *>(data.data()),
 +                  launch);
 +}
 +#endif
@@ -220,4 +198,78 @@ index e7bcebd91..734363dc7 100644
  template <class T>
  std::map<size_t, std::vector<typename Variable<T>::Info>>
  Engine::AllStepsBlocksInfo(const Variable<T> variable) const
+```
+
+Instantiate Kokkos::View Put/Get functions for all supported memory spaces
+
+```diff
+diff --git a/source/adios2/CMakeLists.txt b/source/adios2/CMakeLists.txt
+index e7bcebd91..734363dc7 100644
+--- a/source/adios2/CMakeLists.txt
++++ b/source/adios2/CMakeLists.txt
+@@ -107,6 +107,10 @@ add_library(adios2_core
+set_property(TARGET adios2_core PROPERTY EXPORT_NAME core)
+set_property(TARGET adios2_core PROPERTY OUTPUT_NAME adios2${ADIOS2_LIBRARY_SUFFIX}_core)
+
++if(ADIOS2_HAVE_Kokkos)
++  target_link_libraries(adios2_core PUBLIC Kokkos::kokkos)
++endif()
++
+set(maybe_adios2_core_cuda)
+if(ADIOS2_HAVE_CUDA)
+  add_library(adios2_core_cuda helper/adiosCUDA.cu)
+```
+
+```diff
+diff --git a/source/adios2/common/ADIOSMacros.h b/source/adios2/common/ADIOSMacros.h
+index e7bcebd91..734363dc7 100644
+--- a/source/adios2/common/ADIOSMacros.h
++++ b/source/adios2/common/ADIOSMacros.h
+@@ -16,6 +16,9 @@
+
+#include "adios2/common/ADIOSTypes.h"
+
++#ifdef ADIOS2_HAVE_KOKKOS
++#include <Kokkos_Core.hpp>
++#endif
+/**
+ <pre>
+ The ADIOS_FOREACH_TYPE_1ARG macro assumes the given argument is a macro which
+@@ -266,4 +269,36 @@
+    iterator begin() noexcept { return iterator(DATA_FUNCTION); }              \
+    iterator end() noexcept { return iterator(DATA_FUNCTION + SIZE_FUNCTION); }
+
++#if defined(ADIOS2_HAVE_KOKKOS) && defined(KOKKOS_ENABLE_CUDA)
++#define ADIOS2_FOREACH_KOKKOS_TYPE_2ARGS(MACRO)                                \
++    MACRO(int32_t, Kokkos::CudaSpace)                                          \
++    MACRO(uint32_t, Kokkos::CudaSpace)                                         \
++    MACRO(int64_t, Kokkos::CudaSpace)                                          \
++    MACRO(uint64_t, Kokkos::CudaSpace)                                         \
++    MACRO(float, Kokkos::CudaSpace)                                            \
++    MACRO(double, Kokkos::CudaSpace)                                           \
++    MACRO(int32_t, Kokkos::CudaHostPinnedSpace)                                \
++    MACRO(uint32_t, Kokkos::CudaHostPinnedSpace)                               \
++    MACRO(int64_t, Kokkos::CudaHostPinnedSpace)                                \
++    MACRO(uint64_t, Kokkos::CudaHostPinnedSpace)                               \
++    MACRO(float, Kokkos::CudaHostPinnedSpace)                                  \
++    MACRO(double, Kokkos::CudaHostPinnedSpace)                                 \
++    MACRO(int32_t, Kokkos::CudaUVMSpace)                                       \
++    MACRO(uint32_t, Kokkos::CudaUVMSpace)                                      \
++    MACRO(int64_t, Kokkos::CudaUVMSpace)                                       \
++    MACRO(uint64_t, Kokkos::CudaUVMSpace)                                      \
++    MACRO(float, Kokkos::CudaUVMSpace)                                         \
++    MACRO(double, Kokkos::CudaUVMSpace)
++#endif
++
++#ifdef ADIOS2_HAVE_KOKKOS
++#define ADIOS2_FOREACH_KOKKOS_TYPE_2ARGS(MACRO)                                \
++    MACRO(int32_t, Kokkos::HostSpace)                                          \
++    MACRO(uint32_t, Kokkos::HostSpace)                                         \
++    MACRO(int64_t, Kokkos::HostSpace)                                          \
++    MACRO(uint64_t, Kokkos::HostSpace)                                         \
++    MACRO(float, Kokkos::HostSpace)                                            \
++    MACRO(double, Kokkos::HostSpace)
++#endif
++
+#endif /* ADIOS2_ADIOSMACROS_H */
 ```

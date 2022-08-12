@@ -1,5 +1,9 @@
 # GPU-aware ADIOS with Kokkos
 
+3 implementations: 1) include `Kokkos::View` in ADIOS2 CXX bindings; 2) Kai's implementation general for any container type of object; 3) ADIOS view stub defined in a kokkos header that needs to be included by the user
+
+**Note. In the current ADIOS View implementation the ADIOS2::Variable and Kokkos::View types need to match ! Otherwise ADIOS2 will throu an error that there is no Get function that matches the call**
+
 ## Install ADIOS with Kokkos
 
 Install Kokkos

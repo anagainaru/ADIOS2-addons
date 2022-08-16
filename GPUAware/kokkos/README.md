@@ -1,5 +1,10 @@
 # GPU-aware ADIOS with Kokkos
 
+There are 3 options for implementations: 
+1) include `Kokkos::View` in ADIOS2 CXX bindings. (described in [kokkos-aware-adios.md](https://github.com/anagainaru/ADIOS2-addons/blob/kokkos-view/GPUAware/kokkos/kokkos-aware-adios.md))
+2) Allowing Get/Put to receive any container type of object and overwrite the logic for `Kokkos::View` in a separate file. (described in [container-type.md](https://github.com/anagainaru/ADIOS2-addons/blob/kokkos-view/GPUAware/kokkos/container-type.md)) 
+3) Allowing Get/Put to receive an `ADIOSView` stub defined in a kokkos header that needs to be included by the user. (defined in [adios-view.md](https://github.com/anagainaru/ADIOS2-addons/blob/kokkos-view/GPUAware/kokkos/adios-view.md))
+
 ## Install ADIOS with Kokkos
 
 Install Kokkos

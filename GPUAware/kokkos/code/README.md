@@ -1,3 +1,5 @@
+## Code using ADIOS with Kokkos::View
+
 Running the example:
 ```
 cmake -DKokkos_ROOT=/path/to/kokkos/install -Dadios2_ROOT=/path/to/ADIOS2/install ..

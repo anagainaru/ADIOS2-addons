@@ -7,7 +7,7 @@ There are 3 options for implementations:
 
 ## Install ADIOS with Kokkos
 
-Install Kokkos
+Install Kokkos (only threads backend allowed)
 ```
 cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON
 
@@ -15,9 +15,24 @@ cmake --build build --parallel 6
 cmake --install build
 ```
 
-Install ADIOS
+Install Kokkos on Summit (cuda enabled)
 ```
-cmake -DKokkos_ROOT=/path/to/kokkos/install -DADIOS2_USE_Kokkos=ON  ../ADIOS2/
+module load gcc/9.1.0 cmake/3.23.2 cuda/11.0.3
+
+export KOKKOS_SRC_DIR=/path/to/kokkos
+export KOKKOS_INSTALL_DIR=$KOKKOS_SRC_DIR/install
+export NVCC_WRAPPER_DEFAULT_COMPILER=/usr/bin/g++
+../kokkos/generate_makefile.bash \
+  --prefix=$KOKKOS_INSTALL_DIR \
+  --with-cuda --with-openmp --with-serial \
+  --compiler=$KOKKOS_SRC_DIR/bin/nvcc_wrapper \
+  --cxxflags="-arch=sm_70" \
+  --with-cuda-options=enable_lambda
+```
+
+Install ADIOS (with Kokkos examples, otherwise install like normal)
+```
+cmake -DKokkos_ROOT=/path/to/kokkos/install ../ADIOS2/
 make -j4
 cmake -D CMAKE_INSTALL_PREFIX=${ADIOS_HOME}/install
 make install

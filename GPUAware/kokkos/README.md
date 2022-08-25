@@ -22,12 +22,10 @@ module load gcc/9.1.0 cmake/3.23.2 cuda/11.0.3
 export KOKKOS_SRC_DIR=/path/to/kokkos
 export KOKKOS_INSTALL_DIR=$KOKKOS_SRC_DIR/install
 export NVCC_WRAPPER_DEFAULT_COMPILER=/usr/bin/g++
-../kokkos/generate_makefile.bash \
-  --prefix=$KOKKOS_INSTALL_DIR \
-  --with-cuda --with-openmp --with-serial \
-  --compiler=$KOKKOS_SRC_DIR/bin/nvcc_wrapper \
-  --cxxflags="-arch=sm_70" \
-  --with-cuda-options=enable_lambda
+
+cmake -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR -D CMAKE_CXX_COMPILER=$KOKKOS_SRC_DIR/bin/nvcc_wrapper -D Kokkos_ENABLE_SERIAL=ON -D Kokkos_ENABLE_OPENMP=ON -D Kokkos_ENABLE_CUDA=ON -D Kokkos_ENABLE_CUDA_LAMBDA=ON -D Kokkos_ARCH_POWER9=ON -D Kokkos_ARCH_VOLTA70=ON ../kokkos/
+make -j4
+make install
 ```
 
 Install ADIOS (with Kokkos examples, otherwise install like normal)

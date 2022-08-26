@@ -15,7 +15,7 @@
 int BPWrite(const std::string fname, const size_t N, int nSteps)
 {
     // Initialize the simulation data
-    Kokkos::View<float*, Kokkos::HostSpace> gpuSimData("simBuffer", N);
+    Kokkos::View<float*, Kokkos::CudaSpace> gpuSimData("simBuffer", N);
 
     // Set up the ADIOS structures
     adios2::ADIOS adios;
@@ -44,9 +44,11 @@ int BPWrite(const std::string fname, const size_t N, int nSteps)
         bpWriter.EndStep();
 
         // Update values in the simulation data
-        Kokkos::parallel_for("updateBuffer", N, KOKKOS_LAMBDA(int i){
-            gpuSimData(i) += 5;
-        });
+        Kokkos::parallel_for("updateBuffer",
+			Kokkos::RangePolicy<Kokkos::Cuda>(0,N),
+			KOKKOS_LAMBDA(int i){
+				gpuSimData(i) += 5;
+		});
     }
 
     bpWriter.Close();
@@ -75,7 +77,7 @@ int BPRead(const std::string fname, const size_t N, int nSteps)
     data.SetSelection(sel);
 
     // Initialize the simulation data
-    Kokkos::View<float*, Kokkos::HostSpace> gpuSimData("simBuffer", N);
+    Kokkos::View<float*, Kokkos::CudaSpace> gpuSimData("simBuffer", N);
 
     // Read the data in each of the ADIOS steps
     for (size_t step = 0; step < write_step; step++)

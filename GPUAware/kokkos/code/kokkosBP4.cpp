@@ -14,8 +14,10 @@
 
 int BPWrite(const std::string fname, const size_t N, int nSteps)
 {
-    // Initialize the simulation data
-    Kokkos::View<float*, Kokkos::CudaSpace> gpuSimData("simBuffer", N);
+    // Initialize the simulation data with the default memory space
+    // other options are Kokkos::CudaSpace or Kokkos::HostSpace
+    using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
+    Kokkos::View<float *, mem_space> gpuSimData("simBuffer", N);
 
     // Set up the ADIOS structures
     adios2::ADIOS adios;
@@ -43,15 +45,19 @@ int BPWrite(const std::string fname, const size_t N, int nSteps)
         bpWriter.Put(data, gpuSimData);
         bpWriter.EndStep();
 
-        // Update values in the simulation data
-        Kokkos::parallel_for("updateBuffer",
-			Kokkos::RangePolicy<Kokkos::Cuda>(0,N),
+        // Update values in the simulation data using the default
+        // execution space. Other options: Kokkos::Cuda or
+        // Kokkos::DefaultHostExecutionSpace
+         Kokkos::parallel_for("updateBuffer",
+             Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, N),
 			KOKKOS_LAMBDA(int i){
 				gpuSimData(i) += 5;
 		});
     }
 
     bpWriter.Close();
+    Kokkos::DefaultExecutionSpace exe_space;
+    std::cout << "Write on memory space: " << exe_space.name() << std::endl;
     return 0;
 }
 
@@ -61,6 +67,9 @@ int BPRead(const std::string fname, const size_t N, int nSteps)
     adios2::ADIOS adios;
     adios2::IO io = adios.DeclareIO("ReadIO");
     io.SetEngine("BPFile");
+
+    Kokkos::DefaultExecutionSpace exe_space;
+    std::cout << "Read on memory space: " << exe_space.name() << std::endl;
 
     adios2::Engine bpReader = io.Open(fname, adios2::Mode::Read);
     auto data = io.InquireVariable<float>("data");
@@ -76,8 +85,8 @@ int BPRead(const std::string fname, const size_t N, int nSteps)
     const adios2::Box<adios2::Dims> sel(start, count);
     data.SetSelection(sel);
 
-    // Initialize the simulation data
-    Kokkos::View<float*, Kokkos::CudaSpace> gpuSimData("simBuffer", N);
+    using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
+    Kokkos::View<float *, mem_space> gpuSimData("simBuffer", N);
 
     // Read the data in each of the ADIOS steps
     for (size_t step = 0; step < write_step; step++)
@@ -97,7 +106,7 @@ int BPRead(const std::string fname, const size_t N, int nSteps)
 
 int main(int argc, char **argv)
 {
-    const std::string fname("CudaBp4wr.bp");
+    const std::string fname("KokkosRW.bp");
     const size_t N = 6000;
     int nSteps = 10, ret = 0;
     Kokkos::initialize( argc, argv );

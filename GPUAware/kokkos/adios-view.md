@@ -4,6 +4,14 @@ Without making ADIOS dependent on Kokkos.
 
 Create an ADIOS View stub that will be used as a place holder for Kokkos Views and use the stub in internally in the library. The user will have to include the ADIOSKokkos header.
 
+
+<img width="752" alt="Screen Shot 2022-09-19 at 6 40 40 PM" src="https://user-images.githubusercontent.com/16229479/191131922-8351b889-bb4b-4a60-8e3a-7bb234ec7c4b.png">
+
+Code changes include the following steps:
+  - Create a stub ADIOS View declaring the object that will contain the Kokkos View and will be responsible for all Kokkos related functions
+  - Create the ADIOS View definition linking to the Kokkos library (to be included separately by the application)
+  - Create a mechanism for Kokkos to be build with Kokkos (to be able to run examples within the library)
+
 ## Interface
 
 ```c++
@@ -16,7 +24,7 @@ Create an ADIOS View stub that will be used as a place holder for Kokkos Views a
     auto data = io.DefineVariable<float>("data", shape, start, count);
     for (steps){
         bpWriter.BeginStep();
-        bpWriter.Put<float>(data, gpuSimData);
+        bpWriter.Put(data, gpuSimData);
         bpWriter.EndStep();
     }
 ```

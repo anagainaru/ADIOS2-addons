@@ -31,6 +31,8 @@ Code changes include the following steps:
 
 ## ADIOS View
 
+Add the header files so users can include the KokkosView.
+
 ```diff
 diff --git a/bindings/CXX11/CMakeLists.txt b/bindings/CXX11/CMakeLists.txt
 index 7815a5f33..d9f6231f2 100644
@@ -44,43 +46,45 @@ index 7815a5f33..d9f6231f2 100644
    adios2/cxx11/Attribute.cpp
    adios2/cxx11/Engine.cpp
    adios2/cxx11/Engine.tcc
-diff --git a/bindings/CXX11/adios2/cxx11/ADIOSView.cpp b/bindings/CXX11/adios2/cxx11/ADIOSView.cpp
+@@ -82,14 +80,12 @@ install(
+ install(
+   FILES adios2/cxx11/ADIOS.h
+         adios2/cxx11/ADIOS.inl
++        adios2/cxx11/ADIOSView.h
+         adios2/cxx11/IO.h
+         adios2/cxx11/Group.h
+         adios2/cxx11/Variable.h
+         adios2/cxx11/VariableNT.h
+         adios2/cxx11/Attribute.h
+         adios2/cxx11/Engine.h
++        adios2/cxx11/KokkosView.h
+         adios2/cxx11/Operator.h
+         adios2/cxx11/Query.h
+         adios2/cxx11/Types.h
+```
+
+ADIOS View stub class:
+```diff
+diff --git a/bindings/CXX11/adios2/cxx11/ADIOSView.h b/bindings/CXX11/adios2/cxx11/ADIOSView.h
 new file mode 100644
-index 000000000..07ba1340d
+index 000000000..3962651ec
 --- /dev/null
-+++ b/bindings/CXX11/adios2/cxx11/ADIOSView.cpp
-@@ -0,0 +1,16 @@
-+#ifndef ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_CPP_
-+#define ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_CPP_
-+
-+#include "ADIOSView.h"
++++ b/bindings/CXX11/adios2/cxx11/ADIOSView.h
+@@ -0,0 +1,14 @@
++#ifndef ADIOS2_BINDINGS_CXX11_CXX11_ADIOS_VIEW_H_
++#define ADIOS2_BINDINGS_CXX11_CXX11_ADIOS_VIEW_H_
 +
 +namespace adios2
 +{
-+template <class T>
-+class AdiosView{
-+    public:
-+    virtual void data() const = 0;
-+    virtual void memory_space() const = 0;
++template <typename T, class... Parameters>
++class AdiosView
++{
++public:
++    AdiosView() = delete;
 +};
 +}
 +
-+#endif /* ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_CPP_ */
-diff --git a/bindings/CXX11/adios2/cxx11/ADIOSView.h b/bindings/CXX11/adios2/cxx11/ADIOSView.h
-new file mode 100644
-index 000000000..f3e9c4f03
---- /dev/null
-+++ b/bindings/CXX11/adios2/cxx11/ADIOSView.h
-@@ -0,0 +1,9 @@
-+#ifndef ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_H_
-+#define ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_H_
-+
-+namespace adios2
-+{
-+template <class T> class AdiosView;
-+}
-+
-+#endif /* ADIOS2_BINDINGS_CXX11_CXX11_ADIOSVIEW_H_ */
++#endif /* ADIOS2_BINDINGS_CXX11_CXX11_ADIOS_VIEW_H_ */
 ```
 
 Used in the Engine object.
@@ -98,34 +102,54 @@ index 166679c79..72171ed84 100644
  #include "Types.h"
  #include "Variable.h"
  #include "VariableNT.h"
-@@ -201,6 +202,14 @@ public:
+@@ -201,6 +202,27 @@ public:
      void Put(const std::string &variableName, const T &datum,
               const Mode launch = Mode::Deferred);
 
-+    /* Function using the place holder for Kokkos::View */
-+    template <class T>
-+    void Put(Variable<T> variable, AdiosView<T> const &data,
++    /**
++     * The next two Put functions are used to accept a variable, and an
++     * AdiosViews which is a placeholder for Kokkos::View
++     * @param variable contains variable metadata information
++     * @param data represents any user defined object that is not a vector (used
++     * for an AdiosView)
++     * @param launch mode policy, optional for API consistency, internally is
++     * always sync
++     */
++    template <class T, typename U,
++              class = typename std::enable_if<
++                  std::is_convertible<U, AdiosView<U>>::value>::type>
++    void Put(Variable<T> variable, U const &data,
 +             const Mode launch = Mode::Deferred)
 +    {
-+        Put(variable, data.data(), launch);
++        auto adios_data = static_cast<AdiosView<U>>(data);
++        auto mem_space = adios_data.memory_space();
++        variable.SetMemorySpace(mem_space);
++        Put(variable, adios_data.data(), launch);
 +    }
 +
-     /** Perform all Put calls in Deferred mode up to this point.  Specifically,
-      * this causes Deferred data to be copied into ADIOS internal buffers as if
-      * the Put had been done in Sync mode. */
-@@ -391,6 +400,17 @@ public:
+@@ -391,6 +413,27 @@ public:
      template <class T>
      void Get(Variable<T> variable, T **data) const;
 
-+    /* Function using the place holder for Kokkos::View */
-+    template <class T, class U>
-+    void Get(Variable<T> variable, AdiosView<U> data,
++    /**
++     * The next two Get functions are used to accept a variable, and an
++     * AdiosViews which is a placeholder for Kokkos::View
++     * @param variable contains variable metadata information
++     * @param data represents any user defined object that is not a vector (used
++     * for an AdiosView)
++     * @param launch mode policy, optional for API consistency, internally is
++     * always sync
++     */
++    template <class T, typename U,
++              class = typename std::enable_if<
++                  std::is_convertible<U, AdiosView<U>>::value>::type>
++    void Get(Variable<T> variable, U const &data,
 +             const Mode launch = Mode::Deferred)
 +    {
-+        static_assert(std::is_same<T, U>::value, "The Variable type and the View type must match");
-+        auto mem_space = data.memory_space();
++        auto adios_data = static_cast<AdiosView<U>>(data);
++        auto mem_space = adios_data.memory_space();
 +        variable.SetMemorySpace(mem_space);
-+        Get(variable, data.data(), launch);
++        Get(variable, adios_data.data(), launch);
 +    }
 +
      /** Perform all Get calls in Deferred mode up to this point */
@@ -172,21 +196,25 @@ index 000000000..599910055
 +
 +} // namespace detail
 +
-+template <class T>
-+class AdiosView
++template <class T, class... Parameters>
++class AdiosView<Kokkos::View<T, Parameters...>>
 +{
-+    T *pointer;
++    using data_type = typename Kokkos::View<T, Parameters...>::value_type;
++    data_type *pointer;
 +    adios2::MemorySpace mem_space;
++
 +public:
-+    template <class D, class... P>
-+    AdiosView(Kokkos::View<D, P...> v) {
++    template <class... P>
++    AdiosView(Kokkos::View<T, P...> v)
++    {
 +        pointer = v.data();
-+        mem_space = detail::memspace_kokkos_to_adios2<typename Kokkos::View<D, P...>::memory_space>::value;
++        mem_space = detail::memspace_kokkos_to_adios2<
++            typename Kokkos::View<T, P...>::memory_space>::value;
 +    }
 +
-+    T *data() {return pointer;}
-+    T *data() const {return pointer;}
-+    adios2::MemorySpace memory_space(){return mem_space;}
++    data_type const *data() const { return pointer; }
++    data_type *data() { return pointer; }
++    adios2::MemorySpace memory_space() const { return mem_space; }
 +};
 +
 +}

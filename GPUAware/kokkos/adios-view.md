@@ -220,3 +220,28 @@ index 000000000..599910055
 +}
 +#endif
 ```
+
+## Finding the Kokkos package in the examples code
+
+```diff
+diff --git a/examples/CMakeLists.txt b/examples/CMakeLists.txt
+index 8c77c4402..fa31f36df 100644
+--- a/examples/CMakeLists.txt
++++ b/examples/CMakeLists.txt
+@@ -10,6 +10,11 @@ add_subdirectory(useCases)
+ add_subdirectory(inlineMWE)
+ add_subdirectory(plugins)
+
++find_package(Kokkos QUIET)
++if(Kokkos_FOUND)
++  add_subdirectory(kokkos)
++endif()
++
+ if(ADIOS2_HAVE_MPI)
+   add_subdirectory(heatTransfer)
+ endif()
+```
+
+PR: [https://github.com/ornladios/ADIOS2/pull/3320](https://github.com/ornladios/ADIOS2/pull/3320)
+
+Example code (external to ADIOS): [https://github.com/anagainaru/ADIOS2-addons/tree/main/GPUAware/kokkos/code](https://github.com/anagainaru/ADIOS2-addons/tree/main/GPUAware/kokkos/code)

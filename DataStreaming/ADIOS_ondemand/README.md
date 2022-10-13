@@ -65,3 +65,12 @@ We send metadata to the reader in two places in the code,
 - when new metadata has just come in from the writer and we have requests queued.  
 
 In one of those cases the line of code that updates the last timestep that had been sent on demand was missing.  That produced a different race condition.  * A timestep sent there might be sent just once because once it’s been consumed by the reader, we’ll get a release message and it will be removed from the queue, but since it’s not removed until we get that release message, we might send it again if we get another TimestepRequest message while it’s still in the queue.*
+
+**Multiple reader error**
+```
+$ ./sstWriter 100 10 writer & ./sstReader 100 reader1 &  ./sstReader 100 reader2 & ./sstReader 100 reader3
+SST,Write,1,100,1,10,622,6589
+SST,Read,1,100,1,4,97,7558
+SST,Read,1,100,1,4,106,104326
+SST,Read,1,100,1,3,85,7211
+```

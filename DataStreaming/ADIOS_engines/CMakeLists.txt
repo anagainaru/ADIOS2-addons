@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(SSTadios CXX)
+project(SSTadios C CXX)
 
 find_package(adios2 REQUIRED)
 find_package(MPI REQUIRED)

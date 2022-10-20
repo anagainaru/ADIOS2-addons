@@ -10,9 +10,15 @@ Based on the VisIT expression calculator: [https://visit-sphinx-github-user-manu
 
 ADIOS2 provides Expressions (default and user defined).
 
-```c++
-adios2::Expression expr(adios2::ExpressionType::Sum);
-auto expr = io.DefineExpression(--user defined expression--);
+```c++ 
+struct CustomExpr: public adios2::Expression<float>{
+    void derivedValue(float var){
+        deriveVar = var+5;
+    }
+};
+
+adios2::Expression expr(adios2::SumExpr);
+auto expr = io.DefineExpression(CustomExpr);
 ```
 
 The Expression can be applied on ADIOS2 variables within an engine and once variables are populated the derived quantity is also created.

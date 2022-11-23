@@ -48,6 +48,8 @@ make -j4 install
 
 module load gcc
 
+export SCR_USER_NAME={summit_username}
+
 jsrun -r2 ./bin/hello_bpWriter_mpi
 jsrun -r2 ./bin/hello_bpReader_mpi
 ```
@@ -76,3 +78,7 @@ SCR uses `/dev/shm` as its default cache, since it is fast and available on any 
 ```
 export SCR_CACHE_BASE=/mnt/ssd
 ```
+
+## Correctness test
+
+## Performance test

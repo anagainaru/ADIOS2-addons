@@ -81,4 +81,44 @@ export SCR_CACHE_BASE=/mnt/ssd
 
 ## Correctness test
 
+Change existing codes to use SCR. 
+
+1. Need to include the `scr.h` header.
+```
+sed '/#include <adios2.h>/a #include "scr.h"' -i $1
+```
+
+2. SCR needs to be initialized and finalized, before and after the MPI init and finalize calls (once per test).
+```
+sed '/MPI_Init/a SCR_Init();' -i $1
+sed '/MPI_Finalize/a SCR_Finalize();' -i $1
+```
+
+3. Before the bp file is open, SCR needs to call the `Start_output` function on the same file. After the stream is closed SCR needs to call the `Complete_output` function.
+```
+sed '/Open(fname/i int scr_valid = 1;\n SCR_Start_output(fname.c_str(), SCR_FLAG_CHECKPOINT);' -i $1
+sed '/.Close();/a SCR_Complete_output(scr_valid);' -i $1
+```
+
+Changes to `Test.Engine.BP.WriteReadADIOS2.MPI` pass all tests.
+```
+$ jsrun -r2 /ccs/home/againaru/adios/ADIOS2-scr/build/bin/Test.Engine.BP.WriteReadADIOS2.MPI
+[==========] Running 12 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 12 tests from BPWriteReadTestADIOS2
+[ RUN      ] BPWriteReadTestADIOS2.ADIOS2BPWriteRead1D8
+[==========] Running 12 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 12 tests from BPWriteReadTestADIOS2
+...
+[----------] Global test environment tear-down
+[==========] 12 tests from 1 test suite ran. (1062 ms total)
+[  PASSED  ] 12 tests.
+[       OK ] BPWriteReadTestADIOS2.GetDeferredWithoutEndStep (66 ms)
+[----------] 12 tests from BPWriteReadTestADIOS2 (1062 ms total)
+
+[----------] Global test environment tear-down
+[==========] 12 tests from 1 test suite ran. (1062 ms total)
+[  PASSED  ] 12 tests.
+```
 ## Performance test

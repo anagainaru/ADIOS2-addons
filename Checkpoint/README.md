@@ -1,4 +1,6 @@
-# ADIOS-2 with Checkpointing capabilities
+# ADIOS-2 with SCR
+
+SCR (Scalable Checkpoint Restart) offers checkpointing capabilities by marking files that need to be stored to the parallel filesystem during an application run. It drains the BB in the background asyncrounously and can be used by adios for the data/metadata/index files.
 
 ## Scalable Checkpoint Restart (SCR) library
 

@@ -1,5 +1,32 @@
 # GPU-aware ADIOS
 
+Currently only CUDA supported (through raw pointers or through Kokkos View with CUDA backend).
+
+**Build ADIOS2 with CUDA support**
+
+Specify flags to use CUDA and to set the CUDA architecture to 70 (for NVIDIA Volta V100).
+
+```
+module load cuda/11.0.3 gcc/9.1.0 cmake/3.23.2 
+cmake -D CMAKE_CUDA_ARCHITECTURES=70 -D ADIOS2_USE_CUDA=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
+make -j4
+```
+
+**Build ADIOS2 with Kokkos support**
+
+Install Kokkos and point to the Kokkos folder when building ADIOS2
+
+```
+module load gcc/9.1.0 cmake/3.23.2 cuda/11.0.3
+cmake -DKokkos_ROOT=/path/to/kokkos/install ../ADIOS2/
+make -j4
+```
+
+## API
+
+
+## Implementation details
+
 **1. GPU-aware ADIOS** <br/>
 Capable of receiving GPU buffers during Put calls. Underneath, ADIOS copies the content from the user provided GPU buffer to an internal ADIOS buffer. Metadata (min/max) is done using GPU kernels directly on the user buffer.
 

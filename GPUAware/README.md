@@ -45,11 +45,23 @@ Same API as for CPU buffers.
 
 To build the codes, cmake will require:
 ```
-project(MyTest LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.12)
+project(AdiosCudaExample LANGUAGES C CXX CUDA)
 
-add_executable(name cudaExample.cu cudaExample.cpp)
-target_link_libraries(name PUBLIC adios2::cxx11 CUDA::cudart)
-set_target_properties(name PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+find_package(adios2 REQUIRED)
+enable_language(CUDA)
+
+add_executable(adiosCUDAex cudaADIOS2example.cpp)
+target_sources(adiosCUDAex PRIVATE cudaRoutines.cu)
+target_link_libraries(adiosCUDAex PUBLIC adios2::adios2 adios2::cxx11)# CUDA::cudart)
+set_target_properties(adiosCUDAex PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+```
+
+The path to ADIOS2 installation needs to be specified during build:
+```
+module load cuda/11.0.2 gcc/9.1.0 cmake/3.23.2
+cmake -Dadios2_ROOT=/ccs/home/againaru/adios/ADIOS2/install -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
+
 ```
 
 ## Implementation details

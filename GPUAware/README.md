@@ -43,25 +43,40 @@ Same API as for CPU buffers.
     }
 ```
 
-To build the codes, cmake will require:
-```
-cmake_minimum_required(VERSION 3.12)
-project(AdiosCudaExample LANGUAGES C CXX CUDA)
-
-find_package(adios2 REQUIRED)
-enable_language(CUDA)
-
-add_executable(adiosCUDAex cudaADIOS2example.cpp)
-target_sources(adiosCUDAex PRIVATE cudaRoutines.cu)
-target_link_libraries(adiosCUDAex PUBLIC adios2::adios2 adios2::cxx11)# CUDA::cudart)
-set_target_properties(adiosCUDAex PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-```
+To build the codes, cmake will require linking CUDA or Kokkos. Examples are in the code example folders.
 
 The path to ADIOS2 installation needs to be specified during build:
 ```
 module load cuda/11.0.2 gcc/9.1.0 cmake/3.23.2
 cmake -Dadios2_ROOT=/ccs/home/againaru/adios/ADIOS2/install -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
 
+```
+
+For Kokkos examples other paths might need to be included (example, path to Kokkos install).
+
+**Code examples**
+
+For CUDA the `code_example_cuda` uses BP5 to write data from a GPU and CPU buffer alternatively into the same ADIOS2 variable.
+
+```
+$ cmake -Dadios2_ROOT=/ccs/home/againaru/adios/ADIOS2/install -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ..
+$ ./adiosCUDAex
+Simualation step 0 : 6000 elements: 0
+Simualation step 1 : 6000 elements: 1
+Simualation step 2 : 6000 elements: 20
+Simualation step 3 : 6000 elements: 3
+Simualation step 4 : 6000 elements: 40
+Simualation step 5 : 6000 elements: 5
+Simualation step 6 : 6000 elements: 60
+Simualation step 7 : 6000 elements: 7
+Simualation step 8 : 6000 elements: 80
+Simualation step 9 : 6000 elements: 9
+```
+
+For Kokkos, the `performance` folder has an example.
+
+```
+$ cmake -Dadios2_ROOT=/ccs/home/againaru/adios/ADIOS2/install -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -D Kokkos_ROOT=path/to/kokkos ..
 ```
 
 ## Implementation details

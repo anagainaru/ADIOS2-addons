@@ -24,6 +24,33 @@ make -j4
 
 ## API
 
+Same API as for CPU buffers.
+
+```c++
+#include <adios2.h>
+#include <cuda_runtime.h>
+
+...
+    float *gpuSimData;
+    cudaMalloc(&gpuSimData, N * sizeof(float));
+    // cudamemcpy to fill the simulation data with initial values
+    auto data = io.DefineVariable<float>("data", shape, start, count);
+    for (steps){
+        bpWriter.BeginStep();
+        bpWriter.Put(data, gpuSimData);
+        bpWriter.EndStep();
+        // call CUDA kernels to update the gpu array
+    }
+```
+
+To build the codes, cmake will require:
+```
+project(MyTest LANGUAGES CXX CUDA)
+
+add_executable(name cudaExample.cu cudaExample.cpp)
+target_link_libraries(name PUBLIC adios2::cxx11 CUDA::cudart)
+set_target_properties(name PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+```
 
 ## Implementation details
 

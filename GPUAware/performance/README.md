@@ -1,3 +1,13 @@
+# GPU-aware ADIOS2 performance
+
+Measure write/read performance and memory utilization.
+
+<img width="514" alt="Screen Shot 2022-12-23 at 7 33 30 PM" src="https://user-images.githubusercontent.com/16229479/209415389-20e24e42-7177-4ab1-80ec-11881e0e231c.png">
+
+Write/read performance: time for a single I/O, time for entire application I/O
+
+Memory: user buffer + ADIOS2 internal buffers
+
 # GDS Performance
 
 Measuring the performance of accessing a buffer stored on GPU space to the storage.
@@ -26,6 +36,8 @@ Performance is measured by a simple benchmark, that loops over a fixed number of
 ```
 
 The simulation time measures the execution between lines 1 and 18. The IO time for GPU measures the execution between lines 6 and 10, and for CPU between lines 13 and 16. The copy time measures the execution of the cudaMemcpy function (line 12).
+
+# Performance numbers
 
 ## GPU Aware 
 

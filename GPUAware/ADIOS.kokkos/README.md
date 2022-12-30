@@ -27,6 +27,7 @@ cmake -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR -D CMAKE_CXX_COMPILER=$KOKKOS_
 make -j4
 make install
 ```
+The `configure_kokkos.sh` script can be used to install Kokkos on Summit.
 
 Install ADIOS (with Kokkos examples, otherwise install like normal)
 ```

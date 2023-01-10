@@ -54,3 +54,19 @@ module load zstd
 cmake -D CMAKE_CXX_COMPILER=g++ -D CMAKE_C_COMPILER=gcc -D MGARD_ROOT=/ccs/home/againaru/adios/mgard/MGARD/install ..
 make -j4
 ```
+
+# Running a simple example
+
+On Summit, build both ADIOS2 and MGARD
+```
+bash build_mgard_cuda_summit.sh
+bash build_adios_cuda_mgard.sh
+```
+
+Build the example
+```
+cmake -DADIOS2_ROOT=/path/to/ADIOS2/install ..
+make -j4
+./MGARDWriteRead
+
+```

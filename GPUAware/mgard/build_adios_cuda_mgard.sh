@@ -28,6 +28,7 @@ cmake -S ${adios2_src_dir} -B ${adios2_build_dir} \
 	-DMGARD_ROOT=${adios2_install_dir}\
 	-DADIOS2_USE_SST=OFF\
     -DADIOS2_BUILD_EXAMPLES=OFF\
+    -DCMAKE_INSTALL_PREFIX=${adios2_install_dir}\
 	-DBUILD_TESTING=OFF\
 	-DCMAKE_C_COMPILER=gcc\
 	-DCMAKE_CXX_COMPILER=g++\

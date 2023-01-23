@@ -9,7 +9,7 @@ There are 3 options for implementations:
 
 Install Kokkos (only threads backend allowed)
 ```
-cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON
+cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE
 
 cmake --build build --parallel 6
 cmake --install build

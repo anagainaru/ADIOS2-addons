@@ -21,9 +21,8 @@ module load gcc/9.1.0 cmake/3.23.2 cuda/11.0.3
 
 export KOKKOS_SRC_DIR=/path/to/kokkos
 export KOKKOS_INSTALL_DIR=$KOKKOS_SRC_DIR/install
-export NVCC_WRAPPER_DEFAULT_COMPILER=/usr/bin/g++
 
-cmake -D CMAKE_INSTALL_PREFIX=$KOKKOS_INSTALL_DIR -D CMAKE_CXX_COMPILER=$KOKKOS_SRC_DIR/bin/nvcc_wrapper -D Kokkos_ENABLE_SERIAL=ON -D Kokkos_ENABLE_OPENMP=ON -D Kokkos_ENABLE_CUDA=ON -D Kokkos_ENABLE_CUDA_LAMBDA=ON -D Kokkos_ARCH_POWER9=ON -D Kokkos_ARCH_VOLTA70=ON  -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE ../kokkos/
+cmake -D CMAKE_INSTALL_PREFIX=${KOKKOS_INSTALL_DIR} -D CMAKE_CXX_COMPILER=${KOKKOS_INSTALL_DIR}/bin/nvcc_wrapper -D Kokkos_ENABLE_SERIAL=ON -D Kokkos_ENABLE_CUDA=ON -D Kokkos_ENABLE_CUDA_LAMBDA=ON -D Kokkos_ARCH_POWER9=ON -D Kokkos_ARCH_VOLTA70=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE ../kokkos/
 make -j4
 make install
 ```
@@ -31,7 +30,7 @@ The `configure_kokkos.sh` script can be used to install Kokkos on Summit.
 
 Install ADIOS (with Kokkos examples, otherwise install like normal)
 ```
-cmake -DKokkos_ROOT=/path/to/kokkos/install ../ADIOS2/
+cmake -D CMAKE_CUDA_ARCHITECTURES=70 -D Kokkos_ROOT=${KOKKOS_INSTALL_DIR} -D ADIOS2_USE_Kokkos=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF  -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=$HOME/kokkos/kokkos/bin/nvcc_wrapper ../ADIOS2/
 make -j4
 cmake -D CMAKE_INSTALL_PREFIX=${ADIOS_HOME}/install
 make install

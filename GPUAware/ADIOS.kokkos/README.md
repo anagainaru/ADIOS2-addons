@@ -9,28 +9,20 @@ There are 3 options for implementations:
 
 Install Kokkos (only threads backend allowed)
 ```
-cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE
+cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF
 
 cmake --build build --parallel 6
 cmake --install build
 ```
 
-Install Kokkos on Summit (cuda enabled)
-```
-module load gcc/9.1.0 cmake/3.23.2 cuda/11.0.3
+**Install Kokkos on Summit (cuda enabled)**
 
-export KOKKOS_SRC_DIR=/path/to/kokkos
-export KOKKOS_INSTALL_DIR=$KOKKOS_SRC_DIR/install
-
-cmake -D CMAKE_INSTALL_PREFIX=${KOKKOS_INSTALL_DIR} -D CMAKE_CXX_COMPILER=${KOKKOS_INSTALL_DIR}/bin/nvcc_wrapper -D Kokkos_ENABLE_SERIAL=ON -D Kokkos_ENABLE_CUDA=ON -D Kokkos_ENABLE_CUDA_LAMBDA=ON -D Kokkos_ARCH_POWER9=ON -D Kokkos_ARCH_VOLTA70=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE ../kokkos/
-make -j4
-make install
-```
 The `configure_kokkos.sh` script can be used to install Kokkos on Summit.
 
-Install ADIOS (with Kokkos examples, otherwise install like normal)
+Install ADIOS, needs the `CXX_STANDARD` to 17 and the GCC compiler to point to the kokkos nvcc wrapper. 
 ```
-cmake -D CMAKE_CUDA_ARCHITECTURES=70 -D Kokkos_ROOT=${KOKKOS_INSTALL_DIR} -D ADIOS2_USE_Kokkos=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF  -D CMAKE_C_COMPILER=gcc -D CMAKE_CXX_COMPILER=$HOME/kokkos/kokkos/bin/nvcc_wrapper ../ADIOS2/
+cmake -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF  -DCMAKE_C_COMPILER=gcc -DADIOS2_USE_CUDA=OFF -DADIOS2_BUILD_EXAMPLES=OFF 
+-DBUILD_TESTING=OFF -DADIOS2_USE_SST=OFF -DKokkos_ROOT=/path/to/kokkos/install/ -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_CXX_COMPILER=/path/to/kokkos/bin/nvcc_wrapper ..
 make -j4
 cmake -D CMAKE_INSTALL_PREFIX=${ADIOS_HOME}/install
 make install

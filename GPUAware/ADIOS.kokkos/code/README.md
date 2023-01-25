@@ -19,6 +19,12 @@ Simualation step 8 : 6000 elements: 40
 Simualation step 9 : 6000 elements: 45
 ```
 
+If we want to use the Kokkos backend in ADIOS2, the code needs to be compiled with the same configuration as ADIOS2 and Kokkos.
+
+```
+cmake -Dadios2_ROOT=/path/to/adios/install -DKokkos_ROOT=/path/to/kokkos/install -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF -D CMAKE_CUDA_ARCHITECTURES=70 -DCMAKE_CXX_COMPILER=$HOME/kokkos/kokkos/bin/nvcc_wrapper -DCMAKE_C_COMPILER=gcc ..
+```
+
 **Details**
 
 - ADIOS2 and Kokkos are installed normally

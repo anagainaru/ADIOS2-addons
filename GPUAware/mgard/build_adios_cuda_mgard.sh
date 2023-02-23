@@ -23,16 +23,16 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${mgard_install_dir}/lib64:${mgard_insta
 mkdir -p ${adios2_install_dir}
 
 cmake -S ${adios2_src_dir} -B ${adios2_build_dir} \
-    -DADIOS2_USE_CUDA=ON\
-    -DADIOS2_USE_MGARD=ON\
-	-DMGARD_ROOT=${adios2_install_dir}\
-	-DADIOS2_USE_SST=OFF\
-    -DADIOS2_BUILD_EXAMPLES=OFF\
-    -DCMAKE_INSTALL_PREFIX=${adios2_install_dir}\
-	-DBUILD_TESTING=OFF\
-	-DCMAKE_C_COMPILER=gcc\
-	-DCMAKE_CXX_COMPILER=g++\
-    -DCMAKE_CUDA_ARCHITECTURES="70"
+-DADIOS2_USE_CUDA=ON \
+-DADIOS2_USE_MGARD=ON \
+-DMGARD_ROOT=${mgard_install_dir} \
+-DADIOS2_USE_SST=OFF \
+-DADIOS2_BUILD_EXAMPLES=OFF \
+-DCMAKE_INSTALL_PREFIX=${adios2_install_dir} \
+-DBUILD_TESTING=OFF \
+-DCMAKE_C_COMPILER=gcc \
+-DCMAKE_CXX_COMPILER=g++ \
+-DCMAKE_CUDA_ARCHITECTURES="70"
 
 make -j4
 make -j4 install

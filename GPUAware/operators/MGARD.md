@@ -51,7 +51,7 @@ make install
 
 ```
 module load zstd
-cmake -D CMAKE_CXX_COMPILER=g++ -D CMAKE_C_COMPILER=gcc -D MGARD_ROOT=/ccs/home/againaru/adios/mgard/MGARD/install ..
+cmake -D CMAKE_CXX_COMPILER=g++ -D CMAKE_C_COMPILER=gcc -DADIOS2_USE_MGARD=ON -DCMAKE_PREFIX_PATH=${mgard_install_dir} ..
 make -j4
 ```
 

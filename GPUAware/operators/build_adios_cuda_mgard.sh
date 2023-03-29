@@ -18,14 +18,12 @@ adios2_build_dir=${adios2_src_dir}/build
 adios2_install_dir=${adios2_src_dir}/install
 mgard_install_dir=/path/to/MGARD/install-cuda-summit
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${mgard_install_dir}/lib64:${mgard_install_dir}/lib
-
 mkdir -p ${adios2_install_dir}
 
 cmake -S ${adios2_src_dir} -B ${adios2_build_dir} \
 -DADIOS2_USE_CUDA=ON \
 -DADIOS2_USE_MGARD=ON \
--DMGARD_ROOT=${mgard_install_dir} \
+-DCMAKE_PREFIX_PATH=${mgard_install_dir}
 -DADIOS2_USE_SST=OFF \
 -DADIOS2_BUILD_EXAMPLES=OFF \
 -DCMAKE_INSTALL_PREFIX=${adios2_install_dir} \

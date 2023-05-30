@@ -3,6 +3,7 @@
 #include <tuple>
 #include <numeric>
 #include <algorithm>
+#include <memory>
 
 template <class T>
 class Expression;
@@ -55,21 +56,21 @@ class Expression
 {
     std::vector<std::tuple<Expression<T>, Variable<T> *>> operand_list;
     std::string name;
-    Operation<T> *op;
+    std::shared_ptr<Operation<T>> op;
 
 public:
     Expression(){name="n/a";}
-    Expression(Operation<T> *o): op(o){name="n/a";}
-    Expression(Operation<T> *o, std::string s):name(s), op(o){}
+    Expression(std::shared_ptr<Operation<T>> o): op(o){name="n/a";}
+    Expression(std::shared_ptr<Operation<T>> o, std::string s):name(s), op(o){}
 
     void addOperand(const Expression<T> &ex)
     {
         operand_list.push_back({ex, NULL});
     }
 
-    void addOperand(Variable<T> var)
+    void addOperand(Variable<T> *var)
     {
-        operand_list.push_back({Expression<T>(), &var});
+        operand_list.push_back({Expression<T>(), var});
     }
 
     T compute()
@@ -102,6 +103,31 @@ class IO{
         }
 };
 
+template <class T>
+class MathParser
+{
+    std::string formula;
+    std::vector<std::tuple<std::string, Variable<T> *>> var_list;
+public:
+    MathParser(std::string f): formula(f){}
+    void setVariable(std::string op, Variable<T> var)
+    {
+        // check that we have the op 
+        var_list.push_back({op, &var});
+    }
+    Expression<T> apply()
+    { 
+        // check that we have enough Variables 
+        AddOp<float> addOp;
+        Expression<float> ex1(std::make_shared<AddOp<float>>(addOp), "sum");
+        for (size_t i=0; i<var_list.size(); i++)
+        {
+            ex1.addOperand(std::get<1>(var_list[i]));
+        }
+        return ex1;
+    }
+};
+
 int main ()
 {
     IO io("Test");
@@ -111,16 +137,16 @@ int main ()
     auto var2 = io.DefineVariable<float>("data", 5);
     std::cout << "Variable name: " << var2.get_name() << ", value: " << var2.get_value() << std::endl;
 
-    AddOp<float> addOp;
-    Expression<float> ex1(&addOp, "sum");
-    ex1.addOperand(var1);
-    ex1.addOperand(var2);
-    std::cout << "'var1 + var2': " << ex1.compute() << std::endl;
+    MathParser<float> mp("{1}+{2}");
+    mp.setVariable("{1}", var1);
+    mp.setVariable("{2}", var2);
+    Expression<float> ex = mp.apply();
+     std::cout << "'var1 + var2': " << ex.compute() << std::endl;
  
     MulOp<float> mulOp;
-    Expression<float> ex2(&mulOp, "complex");
-    ex2.addOperand(ex1);
-    ex2.addOperand(var2);
+    Expression<float> ex2(std::make_shared<MulOp<float>>(mulOp), "complex");
+    ex2.addOperand(ex);
+    ex2.addOperand(&var2);
     std::cout << "'(var1 + var2) * var2': " << ex2.compute() << std::endl;
     return 0;
 }

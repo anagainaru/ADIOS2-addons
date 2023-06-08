@@ -1,11 +1,3 @@
-/*
- * Simple example of writing and reading data
- * through ADIOS2 BP engine with multiple simulations steps
- * for every IO step.
- */
-
-#include "cudaRoutines.h"
-
 #include <ios>
 #include <iostream>
 #include <algorithm>
@@ -13,18 +5,18 @@
 
 #include <adios2.h>
 
+#include "cudaRoutines.h"
 #include <cuda_runtime.h>
 
-int BPWrite(const std::string fname, const size_t N, int nSteps)
+int BPWrite(const std::string fname, const size_t N, int nSteps, const std::string engine)
 {
     float *gpuSimData;
-    cudaMalloc(&gpuSimData, N * sizeof(float));
-    cudaMemset(gpuSimData, 0, N);
-	std::vector<float> cpuSimData(N, 0);
+    cudaMalloc((void **)&gpuSimData, N * sizeof(float));
+    cuda_initialize(N, 1, gpuSimData);
 
     adios2::ADIOS adios;
     adios2::IO io = adios.DeclareIO("WriteIO");
-    io.SetEngine("BP5");
+    io.SetEngine(engine);
 
     const adios2::Dims shape{static_cast<size_t>(N)};
     const adios2::Dims start{static_cast<size_t>(0)};
@@ -39,54 +31,41 @@ int BPWrite(const std::string fname, const size_t N, int nSteps)
         data.SetSelection(sel);
 
         bpWriter.BeginStep();
-        if (step % 2 == 0)
-        {
-            bpWriter.Put(data, gpuSimData);
-        } else
-        {
-            bpWriter.Put(data, cpuSimData.data());
-        }
+        bpWriter.Put(data, gpuSimData);
         bpWriter.EndStep();
 
-		cuda_increment(N, 1, 0, gpuSimData, 10);
-        std::transform(cpuSimData.begin(), cpuSimData.end(), cpuSimData.begin(), [](int i) -> int { return i + 1; });
+		cuda_increment(N, 1, gpuSimData, 10);
     }
 
     bpWriter.Close();
     return 0;
 }
 
-int BPRead(const std::string fname, const size_t N, int nSteps)
+int BPRead(const std::string fname, const size_t N, int nSteps, const std::string engine)
 {
     adios2::ADIOS adios;
     adios2::IO io = adios.DeclareIO("ReadIO");
-    io.SetEngine("BP5");
+    io.SetEngine(engine);
 
     adios2::Engine bpReader = io.Open(fname, adios2::Mode::Read);
 
     unsigned int step = 0;
     float *gpuSimData;
-    cudaMalloc(&gpuSimData, N * sizeof(float));
-    cudaMemset(gpuSimData, 0, N);
+    cudaMalloc((void **)&gpuSimData, N * sizeof(float));
     for (; bpReader.BeginStep() == adios2::StepStatus::OK; ++step)
     {
         auto data = io.InquireVariable<float>("data");
-        std::vector<float> simData(N);
         const adios2::Dims start{0};
         const adios2::Dims count{N};
         const adios2::Box<adios2::Dims> sel(start, count);
         data.SetSelection(sel);
 
-        //data.SetMemorySpace(adios2::MemorySpace::CUDA);
-        if (step % 2 != 0)
-			bpReader.Get(data, gpuSimData);
-		else
-			bpReader.Get(data, simData);
+        bpReader.Get(data, gpuSimData);
         bpReader.EndStep();
 		
-        if (step % 2 != 0)
-        	cudaMemcpy(simData.data(), gpuSimData, N * sizeof(float),
-            	       cudaMemcpyDeviceToHost);
+        std::vector<float> cpuData(N);
+        cudaMemcpy(simData.data(), gpuSimData, N * sizeof(float),
+                   cudaMemcpyDeviceToHost);
         std::cout << "Simualation step " << step << " : ";
         std::cout << simData.size() << " elements: " << simData[1] << std::endl;
     }
@@ -96,13 +75,17 @@ int BPRead(const std::string fname, const size_t N, int nSteps)
 
 int main(int argc, char **argv)
 {
-    const std::string fname("CudaBp5wr.bp");
     const int device_id = 1;
     cudaSetDevice(device_id);
+    const std::vector<std::string> list_of_engines = {"BP4", "BP5"};
     const size_t N = 6000;
     int nSteps = 10, ret = 0;
 
-    ret += BPWrite(fname, N, nSteps);
-    ret += BPRead(fname, N, nSteps);
+    for (auto engine : list_of_engines)
+    {
+        const std::string fname(engine + "_HIP_WR.bp");
+        ret += BPWrite(fname, N, nSteps, engine);
+        ret += BPRead(fname, N, nSteps, engine);
+    }
     return ret;
 }

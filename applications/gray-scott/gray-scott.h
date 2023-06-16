@@ -1,10 +1,10 @@
 #ifndef __GRAY_SCOTT_H__
 #define __GRAY_SCOTT_H__
 
-#include <random>
 #include <vector>
 
 #include <Kokkos_Core.hpp>
+#include <Kokkos_Random.hpp>
 #include <mpi.h>
 
 #include "settings.h"
@@ -26,21 +26,23 @@ public:
 
     void init();
     void iterate();
-    void restart(Kokkos::View<double ***> &u, Kokkos::View<double ***> &v);
+    void restart(Kokkos::View<double ***, Kokkos::LayoutLeft> &u,
+                 Kokkos::View<double ***, Kokkos::LayoutLeft> &v);
 
-    const Kokkos::View<double ***> u_ghost() const;
-    const Kokkos::View<double ***> v_ghost() const;
+    const Kokkos::View<double ***, Kokkos::LayoutLeft> u_ghost() const;
+    const Kokkos::View<double ***, Kokkos::LayoutLeft> v_ghost() const;
 
-    Kokkos::View<double ***> u_noghost() const;
-    Kokkos::View<double ***> v_noghost() const;
+    Kokkos::View<double ***, Kokkos::LayoutLeft> u_noghost() const;
+    Kokkos::View<double ***, Kokkos::LayoutLeft> v_noghost() const;
 
-    void u_noghost(Kokkos::View<double ***> u_no_ghost) const;
-    void v_noghost(Kokkos::View<double ***> v_no_ghost) const;
+    void
+    u_noghost(Kokkos::View<double ***, Kokkos::LayoutLeft> u_no_ghost) const;
+    void
+    v_noghost(Kokkos::View<double ***, Kokkos::LayoutLeft> v_no_ghost) const;
 
     Settings settings;
 
-    using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
-    Kokkos::View<double ***, mem_space> u, v, u2, v2;
+    Kokkos::View<double ***, Kokkos::LayoutLeft> u, v, u2, v2;
 
     int rank, procs;
     int west, east, up, down, north, south;
@@ -52,9 +54,9 @@ public:
     MPI_Datatype xz_face_type;
     MPI_Datatype yz_face_type;
 
-    std::random_device rand_dev;
-    std::mt19937 mt_gen;
-    std::uniform_real_distribution<double> uniform_dist;
+    using RandomPool =
+        Kokkos::Random_XorShift64_Pool<Kokkos::DefaultExecutionSpace>;
+    RandomPool rand_pool;
 
     // Setup cartesian communicator data types
     void init_mpi();
@@ -65,21 +67,31 @@ public:
     void calc();
 
     // Exchange faces with neighbors
-    void exchange(std::vector<double> &u, std::vector<double> &v) const;
+    void
+    exchange(Kokkos::View<double ***, Kokkos::LayoutLeft, Kokkos::HostSpace> u,
+             Kokkos::View<double ***, Kokkos::LayoutLeft, Kokkos::HostSpace> v)
+        const;
     // Exchange XY faces with north/south
-    void exchange_xy(std::vector<double> &local_data) const;
+    void
+    exchange_xy(Kokkos::View<double ***, Kokkos::LayoutLeft, Kokkos::HostSpace>
+                    local_data) const;
     // Exchange XZ faces with up/down
-    void exchange_xz(std::vector<double> &local_data) const;
+    void
+    exchange_xz(Kokkos::View<double ***, Kokkos::LayoutLeft, Kokkos::HostSpace>
+                    local_data) const;
     // Exchange YZ faces with west/east
-    void exchange_yz(std::vector<double> &local_data) const;
+    void
+    exchange_yz(Kokkos::View<double ***, Kokkos::LayoutLeft, Kokkos::HostSpace>
+                    local_data) const;
 
     // Return a copy of data with ghosts removed
-    Kokkos::View<double ***>
-    data_noghost(const Kokkos::View<double ***> &data) const;
+    Kokkos::View<double ***, Kokkos::LayoutLeft> data_noghost(
+        const Kokkos::View<double ***, Kokkos::LayoutLeft> &data) const;
 
     // pointer version
-    void data_noghost(const Kokkos::View<double ***> &data,
-                      Kokkos::View<double ***> no_ghost) const;
+    void
+    data_noghost(const Kokkos::View<double ***, Kokkos::LayoutLeft> &data,
+                 Kokkos::View<double ***, Kokkos::LayoutLeft> no_ghost) const;
 
     // Convert local coordinate to local index
     KOKKOS_FUNCTION int l2i(int x, int y, int z) const
@@ -87,8 +99,9 @@ public:
         return x + y * (size_x + 2) + z * (size_x + 2) * (size_y + 2);
     }
 
-    void data_no_ghost_common(const Kokkos::View<double ***> &data,
-                              Kokkos::View<double ***> data_no_ghost) const;
+    void data_no_ghost_common(
+        const Kokkos::View<double ***, Kokkos::LayoutLeft> &data,
+        Kokkos::View<double ***, Kokkos::LayoutLeft> data_no_ghost) const;
 };
 
 #endif

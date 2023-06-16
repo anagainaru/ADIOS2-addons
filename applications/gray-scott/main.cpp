@@ -3,12 +3,27 @@
 #include <sstream>
 #include <vector>
 
+#include <adios2.h>
 #include <mpi.h>
 
 #include <Kokkos_Core.hpp>
 
 #include "gray-scott.h"
+#include "restart.h"
 #include "timer.hpp"
+#include "writer.h"
+
+void print_io_settings(const adios2::IO &io)
+{
+    std::cout << "Simulation writes data using engine type:              "
+              << io.EngineType() << std::endl;
+    auto ioparams = io.Parameters();
+    std::cout << "IO parameters:  " << std::endl;
+    for (const auto &p : ioparams)
+    {
+        std::cout << "    " << p.first << " = " << p.second << std::endl;
+    }
+}
 
 void print_settings(const Settings &s, int restart_step)
 {
@@ -32,6 +47,7 @@ void print_settings(const Settings &s, int restart_step)
     std::cout << "Dv:               " << s.Dv << std::endl;
     std::cout << "noise:            " << s.noise << std::endl;
     std::cout << "output:           " << s.output << std::endl;
+    std::cout << "adios_config:     " << s.adios_config << std::endl;
 }
 
 void print_simulator_settings(const GrayScott &s)
@@ -74,9 +90,25 @@ int main(int argc, char **argv)
         GrayScott sim(settings, comm);
         sim.init();
 
+        adios2::ADIOS adios(settings.adios_config, comm);
+        adios2::IO io_main = adios.DeclareIO("SimulationOutput");
+        adios2::IO io_ckpt = adios.DeclareIO("SimulationCheckpoint");
+
         int restart_step = 0;
+        if (settings.restart)
+        {
+            restart_step = ReadRestart(comm, settings, sim, io_ckpt);
+            io_main.SetParameter(
+                "AppendAfterSteps",
+                std::to_string(restart_step / settings.plotgap));
+        }
+
+        Writer writer_main(settings, sim, io_main);
+        writer_main.open(settings.output, (restart_step > 0));
+
         if (rank == 0)
         {
+            print_io_settings(io_main);
             std::cout << "========================================"
                       << std::endl;
             print_settings(settings, restart_step);
@@ -123,6 +155,12 @@ int main(int argc, char **argv)
                               << it / settings.plotgap << std::endl;
                 }
 
+                writer_main.write(it, sim);
+            }
+
+            if (settings.checkpoint && (it % settings.checkpoint_freq) == 0)
+            {
+                WriteCkpt(comm, it, settings, sim, io_ckpt);
             }
 
 #ifdef ENABLE_TIMERS
@@ -136,6 +174,7 @@ int main(int argc, char **argv)
 #endif
         }
 
+        writer_main.close();
     }
     Kokkos::finalize();
 #ifdef ENABLE_TIMERS

@@ -9,10 +9,16 @@ There are 3 options for implementations:
 
 Install Kokkos (only threads backend allowed)
 ```
-cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF
+cmake -B build -DCMAKE_INSTALL_PREFIX=${PWD}/install -DKokkos_ENABLE_THREADS=ON -DCMAKE_BUILD_TYPE=Release -D Kokkos_ENABLE_HWLOC=ON -D CMAKE_CXX_STANDARD=17 -D CMAKE_CXX_EXTENSIONS=OFF -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE -D BUILD_SHARED_LIBS=ON
 
 cmake --build build --parallel 6
 cmake --install build
+```
+
+Install ADIOS2 with Kokkos support
+```bash
+cmake -D Kokkos_ROOT=/path/to/kokkos/install -D ADIOS2_USE_Kokkos=ON -D CMAKE_POSITION_INDEPENDENT_CODE=TRUE -D BUILD_SHARED_LIBS=ON -D CMAKE_INSTALL_PREFIX=${PWD}/../install ..
+make -j4
 ```
 
 **Install Kokkos on Summit (cuda enabled)**

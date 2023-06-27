@@ -1,6 +1,10 @@
 # GPU-aware ADIOS
 
-Currently only CUDA supported (through raw pointers or through Kokkos View with CUDA backend).
+Currently Nvidia/Intel/AMD architectures supported (raw pointers or Kokkos View) using the CUDA or Kokkos (CUDA, HIP, SYCL) backends. 
+
+<img width="742" alt="Screenshot 2023-06-23 at 5 53 37 PM" src="https://github.com/anagainaru/ADIOS2-addons/assets/16229479/310ffe98-4e8e-419a-8300-8fb622f54db1">
+
+The GPU-aware ADIOS2 is tested on Summit, Perlmutter, Crusher and Polaris and is merged in the ADIOS2 library.
 
 **Build ADIOS2 with CUDA support**
 

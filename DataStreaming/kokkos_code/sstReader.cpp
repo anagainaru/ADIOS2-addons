@@ -4,6 +4,8 @@
 #include <thread>
 #include <vector>
 
+#include <Kokkos_Core.hpp>
+
 #include <adios2.h>
 #include <mpi.h>
 
@@ -31,7 +33,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    try
+    Kokkos::initialize( argc, argv );
     {
         adios2::ADIOS adios("adios2.xml", MPI_COMM_WORLD);
         adios2::IO sstIO = adios.DeclareIO("sstOnDemand");
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
             }
             sstReader.EndStep();
             auto simData = Kokkos::create_mirror_view_and_copy(
-              Kokkos::HostSpace{}, gpuSimData);
+              Kokkos::HostSpace{}, myFloats);
             steps += 1;
             if (debug == 1){
                 for (unsigned int v = 0; v < variablesSize; ++v)
@@ -96,25 +98,7 @@ int main(int argc, char *argv[])
 	    }
         sstReader.Close();
     }
-    catch (std::invalid_argument &e)
-    {
-        std::cout << "Invalid argument exception, STOPPING PROGRAM from rank "
-                  << rank << "\n";
-        std::cout << e.what() << "\n";
-    }
-    catch (std::ios_base::failure &e)
-    {
-        std::cout << "IO System base failure exception, STOPPING PROGRAM "
-                     "from rank "
-                  << rank << "\n";
-        std::cout << e.what() << "\n";
-    }
-    catch (std::exception &e)
-    {
-        std::cout << "Exception, STOPPING PROGRAM from rank " << rank << "\n";
-        std::cout << e.what() << "\n";
-    }
-
+    Kokkos::finalize();
     MPI_Finalize();
     return 0;
 }

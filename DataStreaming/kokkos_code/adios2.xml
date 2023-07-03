@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<adios-config>
+    <io name="sstOnDemand">
+      <engine type="sst">
+        <parameter key="RendezvousReaderCount" value="2"/>
+        <parameter key="StepDistributionMode" value="OnDemand"/>
+      </engine>
+    </io>
+</adios-config>

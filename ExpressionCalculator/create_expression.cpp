@@ -4,6 +4,7 @@
 #include <numeric>
 #include <algorithm>
 #include <memory>
+#include <functional>
 
 template <class T>
 class Expression;
@@ -22,46 +23,35 @@ class Variable
         T get_value(){ return value; }
 };
 
-template <class T>
-class Operation
-{
-public:
-    virtual T apply (std::vector<T> values) = 0;
-};
 
-template <class T>
-class AddOp: public Operation<T>
+namespace detail
 {
-public:
-    T apply (std::vector<T> values) 
-    { 
+    template <class T>
+    T AddOp (std::vector<T> values)
+    {
         return std::accumulate(values.begin(), values.end(), 0);
     }
-};
 
-template <class T>
-class MulOp: public Operation<T>
-{
-public:
-    T apply (std::vector<T> values)
+    template <class T>
+    T MulOp (std::vector<T> values)
     {
         T i = 1;
         std::for_each(values.begin(), values.end(), [&i](int n) { i *= n; });
         return i;
     }
-};
+}
 
 template <class T>
 class Expression
 {
     std::vector<std::tuple<Expression<T>, Variable<T> *>> operand_list;
     std::string name;
-    std::shared_ptr<Operation<T>> op;
+    std::function<T(std::vector<T>)> op;
 
 public:
-    Expression(){name="n/a";}
-    Expression(std::shared_ptr<Operation<T>> o): op(o){name="n/a";}
-    Expression(std::shared_ptr<Operation<T>> o, std::string s):name(s), op(o){}
+    Expression(){name="__NULL";}
+    Expression(std::function<T(std::vector<T>)> o): op(o){name="n/a";}
+    Expression(std::function<T(std::vector<T>)> o, std::string s):name(s), op(o){}
 
     void addOperand(const Expression<T> &ex)
     {
@@ -86,7 +76,7 @@ public:
                 values[idx] = std::get<1>(operand_list[idx])->get_value();
             }
         }
-        return op->apply(values);
+        return op(values);
     }
 };
 
@@ -103,50 +93,29 @@ class IO{
         }
 };
 
-template <class T>
-class MathParser
-{
-    std::string formula;
-    std::vector<std::tuple<std::string, Variable<T> *>> var_list;
-public:
-    MathParser(std::string f): formula(f){}
-    void setVariable(std::string op, Variable<T> var)
-    {
-        // check that we have the op 
-        var_list.push_back({op, &var});
-    }
-    Expression<T> apply()
-    { 
-        // check that we have enough Variables 
-        AddOp<float> addOp;
-        Expression<float> ex1(std::make_shared<AddOp<float>>(addOp), "sum");
-        for (size_t i=0; i<var_list.size(); i++)
-        {
-            ex1.addOperand(std::get<1>(var_list[i]));
-        }
-        return ex1;
-    }
-};
-
 int main ()
 {
     IO io("Test");
-    auto var1 = io.DefineVariable<float>("data", 10);
+    auto var1 = io.DefineVariable<float>("/coord/x", 10);
     std::cout << "Variable name: " << var1.get_name() << ", value: " << var1.get_value() << std::endl;
 
-    auto var2 = io.DefineVariable<float>("data", 5);
+    auto var2 = io.DefineVariable<float>("/coord/y", 5);
     std::cout << "Variable name: " << var2.get_name() << ", value: " << var2.get_value() << std::endl;
+/*
+    Expression<float> expr = io.DefineDerivedExpression<float>(name,
+        "sqrt(px^2+py^2) \n"
+        "px:/sqrt/x \n"
+        "py:/coord/y")
 
-    MathParser<float> mp("{1}+{2}");
-    mp.setVariable("{1}", var1);
-    mp.setVariable("{2}", var2);
-    Expression<float> ex = mp.apply();
-     std::cout << "'var1 + var2': " << ex.compute() << std::endl;
- 
-    MulOp<float> mulOp;
-    Expression<float> ex2(std::make_shared<MulOp<float>>(mulOp), "complex");
+    Expression<float> expr = io.DefineDerivedExpression<float>(name,
+        "sqrt('/coord/x'^2+'/coord/y'^2)")
+ */
+    Expression<float> ex(detail::AddOp<float>, "add");
+    ex.addOperand(&var1);
+    ex.addOperand(&var2);
+    Expression<float> ex2(detail::MulOp<float>, "complex");
     ex2.addOperand(ex);
-    ex2.addOperand(&var2);
-    std::cout << "'(var1 + var2) * var2': " << ex2.compute() << std::endl;
+    ex2.addOperand(&var1);
+    std::cout << "'(var1 + var2) * var1': " << ex2.compute() << std::endl;
     return 0;
 }

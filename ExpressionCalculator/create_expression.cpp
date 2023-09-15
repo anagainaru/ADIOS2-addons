@@ -96,7 +96,7 @@ void create_test_string_exp()
     exp.add_child(exp_child);
 
     auto res = get_string_exp<float>(
-        exp, {{"var 1", 1}, {"var2", 2}, {"var3", 3}});
+        exp, {{"var1", 1}, {"var2", 2}, {"var3", 3}});
     std::cout << "exp result: " << res << std::endl;
 }
 

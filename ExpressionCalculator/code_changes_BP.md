@@ -1,5 +1,11 @@
 ## Compute data and/or metadata for a derive variable
 
+Building ADIOS2 with derived variable support will allow to create and query derived variables.
+
+```bash
+cmake -D ADIOS2_USE_Derived=ON ..
+```
+
 **Write side**
 
 Creating derived variables is given in the following diagram:

@@ -1,4 +1,4 @@
-## Compute data and/or metadata for a derive variable
+# Compute data and/or metadata for a derive variable
 
 Building ADIOS2 with derived variable support will allow to create and query derived variables.
 
@@ -6,24 +6,41 @@ Building ADIOS2 with derived variable support will allow to create and query der
 cmake -D ADIOS2_USE_Derived=ON ..
 ```
 
-**Write side**
+## Write side
 
-Creating derived variables is given in the following diagram:
-<img width="304" alt="Screenshot 2023-08-28 at 3 25 49 PM" src="https://github.com/anagainaru/ADIOS2-addons/assets/16229479/9b73177a-40c5-41bd-88ed-f10fea2b4c83">
+Derived variables are defined by users giving:
+- a string expression
+- a mapping between variables in the string expression and ADIOS variables
+- the type of derived variable
 
-Derived variables are defined by users given a string expression. The grammer converts the expression into a tree that is being stored by the derived variable. The expression class keeps track of all the pointers to blocks of data that are being `Put` in each step.
-
-For defered mode the data pointers are directly the user buffer. For sync, the data is taken from the BP4/BP5 buffers:
-
-**BP4** 
-The user data is stored in blocks inside the `Variable` class.
+Library inteface:
 ```c++
-    struct BPInfo
-    {
-        T *Data = nullptr;
-    }
+VariableDerived &DefineDerivedVariable(
+	const std::string &name,
+	const std::string &exp_string,
+	const DerivedVarType varType = DerivedVarType::MetadataOnly)
+
+enum class DerivedVarType
+{
+    MetadataOnly,     ///< Store only the metadata (default)
+    ExpressionString, ///< Store only the expression string
+    StoreData         ///< Store data and metadata
+};
 ```
-Each variable can receive multiple blocks in the same step.
+
+Example user code:
+```c++
+auto deriveVar = bpIO.DefineDerivedVariable(
+        "derive/magU",                       // name
+        "x : sim/Ux \n”                      // mapping
+        "y : sim/Uy \n”
+        ”sqrt(x^2 + y^2)",                   // expression
+        adios2::DerivedVarType::StoreData    // type of variable
+); 
+```
+
+The grammar converts the expression into a tree that is being stored by the derived variable. 
+The expression tree holds variables in the leafs and operators in the internal nodes. Operators have functions associated with them that can compute the output dimensions and data based on Variable dimensions and data.
 
 **BP5**
 The user data is stored in blocks inside the `BP5Serializer` class in the `DeferredExterns` structure. 

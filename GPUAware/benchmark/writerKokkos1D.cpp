@@ -64,9 +64,12 @@ void writer(adios2::ADIOS &adios, const std::string &engine, const std::string &
 	    double global_put_time = 0;
 	    MPI_Reduce(&put_time, &global_put_time, 1, MPI_DOUBLE, MPI_MAX, 0,
                    MPI_COMM_WORLD);
-        std::cout << "Write1D " << engine << " " << exe_space.name() << " "
-                  << Nx * sizeof(float) / (1024*1024) << " " << global_put_time
-                  << " units:MB:s " << std::endl;
+        if(rank == 0)
+        {
+            std::cout << "Write1D " << engine << " " << exe_space.name() << " "
+                      << Nx * sizeof(float) / (1024.*1024) << " " << global_put_time
+                      << " units:MB:s " << std::endl;
+        }
         // Update values in the simulation dataFloats
         Kokkos::parallel_for(
             "updateBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx),
@@ -92,7 +95,8 @@ int main(int argc, char **argv)
     Kokkos::initialize(argc, argv);
 
     const std::string engine(argv[1]);
-    std::cout << "Engine: " << engine << std::endl;
+    if (rank == 0)
+        std::cout << "Engine: " << engine << std::endl;
 
     const std::string filename = argv[5] ? argv[5] : engine + "StepsWriteReadCuda";
     const unsigned int nSteps = std::stoi(argv[3]);
@@ -102,15 +106,17 @@ int main(int argc, char **argv)
     {
         /** ADIOS class factory of IO class objects */
         adios2::ADIOS adios(MPI_COMM_WORLD);
-        if (memorySpace == "Device")
+        if (memorySpace == "device" || memorySpace == "Device")
         {
-            std::cout << "Memory space: DefaultMemorySpace" << std::endl;
-            using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
+            if (rank == 0)
+                std::cout << "Memory space: DefaultMemorySpace" << std::endl;
+                using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
             writer<mem_space, Kokkos::DefaultExecutionSpace>(adios, engine, filename, Nx, nSteps, false);
         }
-        if (memorySpace == "Host")
-        {
-            std::cout << "Memory space: HostSpace" << std::endl;
+        if (memorySpace == "host" || memorySpace == "Host")
+            {
+            if (rank == 0)
+                std::cout << "Memory space: HostSpace" << std::endl;
             writer<Kokkos::HostSpace, Kokkos::Serial>(adios, engine, filename, Nx, nSteps, true);
         }
     }

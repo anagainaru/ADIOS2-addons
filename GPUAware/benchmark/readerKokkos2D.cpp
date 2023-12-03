@@ -26,13 +26,11 @@ int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const s
     if (engine == "DataMan")
         io.SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12306"}, {"Timeout", "5"}});
 
-    ExecSpace exe_space;
-    std::cout << "Read on memory space: " << exe_space.name() << std::endl;
-
     adios2::Engine engineReader = io.Open(fname, adios2::Mode::Read);
 
     unsigned int step = 0;
     Kokkos::View<float **, MemSpace> gpuSimData("simBuffer", Nx, Ny);
+    ExecSpace exe_space;
     for (; engineReader.BeginStep() == adios2::StepStatus::OK; ++step)
     {
         auto data = io.InquireVariable<float>("dataFloats");
@@ -51,9 +49,12 @@ int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const s
 	    double global_get_time = 0;
 	    MPI_Reduce(&get_time, &global_get_time, 1, MPI_DOUBLE, MPI_MAX, 0,
                    MPI_COMM_WORLD);
-        std::cout << "Read" << engine << " " << exe_space.name() << " "
-                  << Nx * sizeof(float) / (1024*1024) << " " << global_get_time
-                  << " units:MB:s " << std::endl;
+        if (rank == 0)
+        {
+            std::cout << "Read" << engine << " " << exe_space.name() << " "
+                      << Nx * Ny * sizeof(float) / (1024.*1024) << " " << global_get_time
+                      << " units:MB:s " << std::endl;
+        }
     }
     engineReader.Close();
     return 0;
@@ -73,7 +74,8 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     const std::string engine(argv[1]);
-    std::cout << "Using engine " << engine << std::endl;
+    if (rank == 0)
+        std::cout << "Using engine " << engine << std::endl;
 
     const std::string filename = argv[2] ? argv[2] : engine + "WriteReadKokkos.bp";
     const unsigned int Nx = std::stoi(argv[3]);
@@ -84,17 +86,18 @@ int main(int argc, char **argv)
     {
         adios2::ADIOS adios;
 
-        std::cout << "Using engine " << engine << std::endl;
-        if (memorySpace == "Device")
+        if (memorySpace == "device" || memorySpace == "Device")
         {
             using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
-            std::cout << "Memory space: DefaultMemorySpace" << std::endl;
+            if (rank == 0)
+                std::cout << "Memory space: DefaultMemorySpace" << std::endl;
             read<mem_space, Kokkos::DefaultExecutionSpace>(adios, filename, Nx, Ny,
                                                              engine);
         }
         else
         {
-            std::cout << "Memory space: HostSpace" << std::endl;
+            if (rank == 0)
+                std::cout << "Memory space: HostSpace" << std::endl;
             read<Kokkos::HostSpace, Kokkos::Serial>(adios, filename, Nx, Ny, engine);
         }
     }

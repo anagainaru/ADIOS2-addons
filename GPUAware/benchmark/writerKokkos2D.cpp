@@ -22,12 +22,14 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
             const size_t nSteps, const std::string engine)
 {
     // Initialize the simulation data
+	int internal_rank = rank;
+	int internal_size = size;
     Kokkos::View<float **, MemSpace> gpuSimData("simBuffer", Nx, Ny);
     static_assert(Kokkos::SpaceAccessibility<ExecSpace, MemSpace>::accessible, "");
     Kokkos::parallel_for(
         "initBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx), KOKKOS_LAMBDA(int i) {
             for (int j = 0; j < Ny; j++)
-                gpuSimData(i, j) = static_cast<float>(j + i * rank);
+                gpuSimData(i, j) = static_cast<float>(j + i * internal_rank);
         });
     Kokkos::fence();
 
@@ -71,7 +73,7 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
         Kokkos::parallel_for(
             "updateBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx), KOKKOS_LAMBDA(int i) {
                 for (int j = 0; j < Ny; j++)
-                    gpuSimData(i, j) += (10 / size);
+                    gpuSimData(i, j) += (10 / internal_size);
             });
         Kokkos::fence();
     }

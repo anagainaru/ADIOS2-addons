@@ -22,11 +22,13 @@ template <class MemSpace, class ExecSpace>
 void writer(adios2::ADIOS &adios, const std::string &engine, const std::string &fname,
             const size_t Nx, unsigned int nSteps, const bool include_copy_to_device)
 {
+	int internal_rank = rank;
+	int internal_size = size;
     Kokkos::View<float *, MemSpace> gpuSimData("simBuffer", Nx);
     static_assert(Kokkos::SpaceAccessibility<ExecSpace, MemSpace>::accessible, "");
     Kokkos::parallel_for(
         "initBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx),
-        KOKKOS_LAMBDA(int i) { gpuSimData(i) = static_cast<float>(i * rank); });
+        KOKKOS_LAMBDA(int i) { gpuSimData(i) = static_cast<float>(i * internal_rank); });
     Kokkos::fence();
 
     // Set up the ADIOS structures
@@ -68,7 +70,7 @@ void writer(adios2::ADIOS &adios, const std::string &engine, const std::string &
         // Update values in the simulation dataFloats
         Kokkos::parallel_for(
             "updateBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx),
-            KOKKOS_LAMBDA(int i) { gpuSimData(i) += (10 / size); });
+            KOKKOS_LAMBDA(int i) { gpuSimData(i) += (10 / internal_size); });
         Kokkos::fence();
     }
     engineWriter.Close();

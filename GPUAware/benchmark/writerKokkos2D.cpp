@@ -69,7 +69,8 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
         {
             std::cout << "Write2D " << engine << " " << exe_space.name() << " "
                       << Nx * Ny * sizeof(float) / (1024.*1024) << " " << global_put_time
-                      << " units:MB:s " << std::endl;
+                      << " " << Nx * Ny * sizeof(float) / (1024. * 1024 * 1024 * global_put_time)
+                      << " units:MB:s:GB/s" << std::endl;
         }
 
         // Update values in the simulation data

@@ -68,7 +68,8 @@ void writer(adios2::ADIOS &adios, const std::string &engine, const std::string &
         {
             std::cout << "Write1D " << engine << " " << exe_space.name() << " "
                       << Nx * sizeof(float) / (1024.*1024) << " " << global_put_time
-                      << " units:MB:s " << std::endl;
+                      << " " << Nx * sizeof(float) / (1024. * 1024 * 1024 * global_put_time)
+                      << " units:MB:s:GB/s" << std::endl;
         }
         // Update values in the simulation dataFloats
         Kokkos::parallel_for(

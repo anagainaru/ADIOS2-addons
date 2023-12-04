@@ -68,7 +68,8 @@ void reader(adios2::ADIOS &adios, const std::string &engine, const std::string &
         {
             std::cout << "Read " << engine << " " << exe_space.name() << " "
                       << Nx * sizeof(float) / (1024.*1024) << " " << global_get_time
-                      << " units:MB:s " << std::endl;
+                      << " " << Nx * sizeof(float) / (1024. * 1024 * 1024 * global_get_time)
+                      << " units:MB:s:GB/s" << std::endl;
         }
         // measure the time to copy the data from the host to the GPU
         if (include_copy_to_device)

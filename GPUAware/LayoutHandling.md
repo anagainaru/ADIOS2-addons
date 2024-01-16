@@ -12,7 +12,9 @@ Variables will have two new fields to deal with GPUs:
 
 On the write side we fix the memory space of a variable during the first `Put`, succeding `Put`s on a different memory space will raise an error. If the memory space is set to GPU and the ADIOS layout is C++ there is a mismatch, otherwise there is no mismath between the two layouts. If there is a mismatch, we switch the dimensions of the shape, start and count of a variable and we switch every time a new shape is set on the variable.
 
-On the read side, `InquireVariable` will be able to receive a memory space (default Host) so that the `GetShape` function returns switched dimensions. Nothing else needs to be switched.
+On the read side, the `Shape` function will be able to receive a memory space (default Host) so that it returns switched dimensions. On Get, adios2 has the memory space so it can set the correct dimensions for the read buffer. 
+
+The write memory space is stored as a variable attribute and can be used by the user to know the data is transposed. 
 
 ## Why do we need this?
 

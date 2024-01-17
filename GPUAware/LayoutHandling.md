@@ -4,6 +4,23 @@ ADIOS2 is row major so any data received will be stored in layout right format.
 
 C++/C buffers use layout right, Fortran and GPU buffers layout left. ADIOS2 deals with Fortran codes by switching the dimensions.
 
+## Current solution for layout mismatch
+
+Variables will have two new fields to deal with GPUs:
+- Memory space (where the buffer was allocated): GPU or CPU
+- LayoutMismatch (if the layout of the memory space is the same as the layout used by ADIOS)
+
+On the write side we fix the memory space of a variable during the first `Put`, succeding `Put`s on a different memory space will raise an error. If the memory space is set to GPU and the ADIOS layout is C++ there is a mismatch, otherwise there is no mismath between the two layouts. If there is a mismatch, we switch the dimensions of the shape, start and count of a variable and we switch every time a new shape is set on the variable.
+
+On the read side, the `Shape` function will be able to receive a memory space (default Host) so that it returns switched dimensions. On Get, adios2 has the memory space so it can set the correct dimensions for the read buffer. 
+
+The write memory space is stored as a variable attribute and can be used by the user to know the data is transposed. 
+
+## Why do we need this?
+
+If we write/read on the same memory space the sender/receiver buffers will have the same shape/content.
+If the layouts are different, the read will not see the global data the same way as the writer. The next sections show examples.
+
 ### Writing from a CPU pointer
 
 <img width="845" alt="Screenshot 2024-01-03 at 3 34 25 PM" src="https://github.com/anagainaru/ADIOS2-addons/assets/16229479/0d8b8687-48f8-4556-9ab7-1ec03b71036b">

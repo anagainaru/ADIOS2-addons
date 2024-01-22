@@ -66,7 +66,7 @@ void reader(adios2::ADIOS &adios, const std::string &engine, const std::string &
                    MPI_COMM_WORLD);
         if (rank == 0)
         {
-            std::cout << "Read " << engine << " " << exe_space.name() << " "
+            std::cout << "Read1D " << engine << " " << exe_space.name() << " "
                       << Nx * sizeof(float) / (1024.*1024) << " " << global_get_time
                       << " " << Nx * sizeof(float) / (1024. * 1024 * 1024 * global_get_time)
                       << " units:MB:s:GB/s" << std::endl;
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 
     const std::string engine(argv[1]);
     if (rank == 0)
-        std::cout << "Using engine " << engine << std::endl;
+        std::cout << "Engine: " << engine << std::endl;
 
     const std::string filename = argv[2] ? argv[2] : engine + "WriteReadKokkos.bp";
     const unsigned int Nx = std::stoi(argv[3]);

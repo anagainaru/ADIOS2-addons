@@ -41,4 +41,8 @@ if (BUILD_KERNELS)
     add_executable(perf_gpukernel GPUKernelPerf.cpp)
     kokkos_compilation(SOURCE GPUKernelPerf.cpp)
     target_link_libraries(perf_gpukernel Kokkos::kokkos)
+
+    add_executable(perf_derived adiosDerivedPerf.cpp)
+    kokkos_compilation(SOURCE adiosDerivedPerf.cpp)
+    target_link_libraries(perf_derived Kokkos::kokkos)
 endif()

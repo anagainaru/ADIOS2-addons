@@ -51,7 +51,7 @@ int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const s
                    MPI_COMM_WORLD);
         if (rank == 0)
         {
-            std::cout << "Read" << engine << " " << exe_space.name() << " "
+            std::cout << "Read2D " << engine << " " << exe_space.name() << " "
                       << Nx * Ny * sizeof(float) / (1024.*1024) << " " << global_get_time
                       << " " << Nx * Ny * sizeof(float) / (1024. * 1024 * 1024 * global_get_time)
                       << " units:MB:s:GB/s" << std::endl;

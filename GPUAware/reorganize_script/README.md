@@ -4,6 +4,53 @@ Changes to the code implemented in `source/utils/adios_reorganize/Reorganize.cpp
 
 This is useful to reproduce performance results when using GPU pointers for a given dataset.
 
+### Usage
+
+The changes need to be applied to the util files inside the adios2 library.
+```
+$ ./bin/adios2_reorganize
+Usage: adios_reorganize input output rmethod "params" wmethod "params" <decomposition>
+    input   Input stream path
+    output  Output file path
+    rmethod ADIOS method to read with
+            Supported read methods: BPFile, HDF5, SST, SSC, DataMan
+    params  Read method parameters (in quotes; comma-separated list)
+    wmethod ADIOS method to write with
+    params  Write method parameters (in quotes; comma-separated list)
+    <decomposition>    list of numbers e.g. 32 8 4
+            Decomposition values in each dimension of an array
+            The product of these number must be less then the number
+            of processes. Processes whose rank is higher than the
+            product, will not write anything.
+               Arrays with less dimensions than the number of values,
+            will be decomposed with using the appropriate number of
+            values.
+$ ./bin/adios2_reorganize BP4Test.bp BP5Test.bp BP4 "" BP5 ""
+Input stream            = BP4Test.bp
+Output stream           = BP5Test.bp
+Read method             = BP4
+Read method parameters  =
+Write method            = BP5
+Write method parameters =
+Waiting to open stream BP4Test.bp...
+____________________
+
+File info:
+  current step:   0
+  # of variables: 2
+  # of attributes: 0
+Get info on variable 0: bpStep
+    uint32_t bpStep	scalar
+Get info on variable 1: bpFloats
+    float bpFloats[60000]
+rank 0: position in 1-D decomposition = 0
+rank 0: ldims in 1-D space = {60000}
+rank 0: offsets in 1-D space = {0}
+rank 0: Read variable bpStep
+rank 0: Read variable bpFloats
+rank 0: Write variable bpStep
+rank 0: Write variable bpFloats
+```
 
 ### Code changes
 ```diff

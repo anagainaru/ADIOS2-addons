@@ -8,85 +8,87 @@
 #include <cmath>
 #include <chrono>
 
-double GPUMagnitude(Kokkos::View<float *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
+double GPUMagnitude(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
-    float mag = 0;
+    double mag = 0;
     Kokkos::parallel_reduce(
       size,
-      KOKKOS_LAMBDA(int i, float &lmag) {
+      KOKKOS_LAMBDA(int i, double &lmag) {
             lmag = data(i) * data(i);
-      }, Kokkos::Sum<float>(mag));
+      }, Kokkos::Sum<double>(mag));
     Kokkos::fence();
     return timer.seconds();
 }
 
-double CPUMagnitude(std::vector<float> data)
+double CPUMagnitude(std::vector<double> data)
 {
     Kokkos::Timer timer;
-    float mag = std::accumulate(data.begin(), data.end(), 0, [](float a, float b){ return a + b * b;});
+    double mag = std::accumulate(data.begin(), data.end(), 0, [](double a, double b){ return a + b * b;});
     return timer.seconds();
 }
 
-double GPUTranspose(Kokkos::View<float *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
+double GPUTranspose(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
-    Kokkos::View<float *, Kokkos::DefaultExecutionSpace::memory_space> dest("dest", size);
+    Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> dest("dest", size);
     Kokkos::Experimental::reverse_copy(Kokkos::DefaultExecutionSpace(), Kokkos::Experimental::begin(data), Kokkos::Experimental::end(data), Kokkos::Experimental::begin(dest));
     Kokkos::fence();
     return timer.seconds();
 }
 
-double CPUTranspose(std::vector<float> data, size_t size)
+double CPUTranspose(std::vector<double> data, size_t size)
 {
     Kokkos::Timer timer;
-    std::vector<float> dest(size);
+    std::vector<double> dest(size);
     std::reverse_copy(std::begin(data), std::end(data), std::begin(dest));
     return timer.seconds();
 }
 
-double GPUCopy(Kokkos::View<float *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
+double GPUCopy(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data,
+			   Kokkos::View<double *, Kokkos::HostSpace> dest)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
-    Kokkos::View<float *, Kokkos::HostSpace> dest("dest", size);
     Kokkos::deep_copy(dest, data);
     Kokkos::fence();
     return timer.seconds();
 }
 
-double CPUCopy(std::vector<float> data, size_t size)
+double CPUCopy(std::vector<double> data, std::vector<double> dest)
 {
     Kokkos::Timer timer;
-    std::vector<float> dest(size);
     std::copy(data.begin(), data.end(), dest.begin());
     return timer.seconds();
 }
 
-double GPUMinMax(Kokkos::View<float *, Kokkos::DefaultExecutionSpace::memory_space> data, size_t size)
+double GPUMinMax(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data,
+				 size_t size, double &ret)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
-    float min, max;
+    double min, max;
     Kokkos::parallel_reduce(
     size,
-    KOKKOS_LAMBDA(int i, float &lmax, float &lmin) {
+    KOKKOS_LAMBDA(int i, double &lmax, double &lmin) {
         if (lmax < data(i))
             lmax = data(i);
         if (lmin > data(i))
             lmin = data(i);
     },
-    Kokkos::Max<float>(max), Kokkos::Min<float>(min));
+    Kokkos::Max<double>(max), Kokkos::Min<double>(min));
     Kokkos::fence();
+	ret = min + max;
     return timer.seconds();
 }
 
-double CPUMinMax(std::vector<float> data)
+double CPUMinMax(std::vector<double> data, double &ret)
 {
     Kokkos::Timer timer;
     auto [min, max] = std::minmax_element(data.begin(), data.end());
+	ret = *min + *max;
     return timer.seconds();
 }
 
@@ -105,36 +107,44 @@ int main(int argc, char **argv)
     using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
     Kokkos::DefaultExecutionSpace exe_space;
     std::cout << "DefaultMemorySpace : " << exe_space.name() <<  std::endl;
-    std::cout << "Kernel power(size=10^power) size(MB) timeKokkos(s) timeSTD(s)" << std::endl;
-    for (size_t i = 6; i <= 9; i++)
+	std::vector<size_t> size_list = {25*1048576, 50*1048576}; // {100*1048576, 200*1048576, 400*1048576};
+    for (const size_t& size:size_list)
     {
-        size_t size = std::pow(10, i);
-        std::vector<float> cpuData(size);
-        std::generate(cpuData.begin(), cpuData.end(), gen);
-        Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>> tempView(cpuData.data(), size);
-        auto gpuData = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), tempView);
-        Kokkos::fence();
+		for(size_t i=1; i<4; i++)
+		{
+			std::vector<double> cpuData(size);
+			std::generate(cpuData.begin(), cpuData.end(), gen);
+			Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>> tempView(cpuData.data(), size);
+			auto gpuData = Kokkos::create_mirror_view_and_copy(Kokkos::DefaultExecutionSpace(), tempView);
+			Kokkos::fence();
 
-        auto timeGPU = GPUMinMax(gpuData, size);
-        auto timeCPU = CPUMinMax(cpuData);
-        std::cout << "MinMax " << i << " " << (size * sizeof(float)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
+			double statsGPU, statsCPU;
+			auto timeGPU = GPUMinMax(gpuData, size, statsGPU);
+			auto timeCPU = CPUMinMax(cpuData, statsCPU);
+			if (statsGPU != statsCPU) std::cout << "ERROR value mismatch in minmax" << std::endl;
+			std::cout << "MinMax " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
+					  << timeGPU << " " << timeCPU << std::endl;
 
-        timeGPU = GPUCopy(gpuData, size);
-        timeCPU = CPUCopy(cpuData, size);
-        std::cout << "Copy " << i << " " << (size * sizeof(float)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
+			std::vector<double> destCPU(size);
+			Kokkos::View<double *, Kokkos::HostSpace> destGPU("dest", size);
+			timeGPU = GPUCopy(gpuData, destGPU);
+			timeCPU = CPUCopy(cpuData, destCPU);
+			if (destGPU[0] != destCPU[0]) std::cout << "ERROR value mismatch in copy" << std::endl;
+			std::cout << "Copy " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
+					  << timeGPU << " " << timeCPU << std::endl;
 
-        timeGPU = GPUTranspose(gpuData, size);
-        timeCPU = CPUTranspose(cpuData, size);
-        std::cout << "Transpose " << i << " " << (size * sizeof(float)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
+	/*        timeGPU = GPUTranspose(gpuData, size);
+			timeCPU = CPUTranspose(cpuData, size);
+			std::cout << "Transpose " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
+					  << timeGPU << " " << timeCPU << std::endl;
 
-        timeGPU = GPUMagnitude(gpuData, size);
-        timeCPU = CPUMagnitude(cpuData);
-        std::cout << "Magnitude " << i << " " << (size * sizeof(float)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
-    }
+			timeGPU = GPUMagnitude(gpuData, size);
+			timeCPU = CPUMagnitude(cpuData);
+			std::cout << "Magnitude " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
+					  << timeGPU << " " << timeCPU << std::endl;
+	*/
+		}
+	}
 
     Kokkos::finalize();
     return 0;

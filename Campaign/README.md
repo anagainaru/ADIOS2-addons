@@ -148,52 +148,18 @@ hostname = OLCF   longhostname = frontier.olcf.ornl.gov
 
 ## Local side (where the query occurs)
 
-### ADIOS build
-
-For now, the ADIOS branch that has accuracy enabled is in Norbert's repo:
-https://github.com/pnorbert/ADIOS2/tree/remote_compression
-
-**Dependencies:**
- - ZFP 1.0.0 https://github.com/LLNL/zfp.git, tag 1.0.1
- - SQLite 3  (libsqlite3-dev on Ubuntu)
-
-On MAC that had python both through Homebrew and external, use a virtual environment to install a Python library that isn't in Homebrew:
-```
-$ python3 -m venv ~/work/kits/pipve
-$ source  ~/work/kits/pipve/bin/activate
-```
-
-The following pip3 packages may need to be installed: paramiko, python-dateutil, python-yaml, sqlite3, python-tk@3.13 and dataclasses
+The aca files need to be copied from the remote local to the local machine.
 
 ```
-$ pip3 install pyyaml
-Successfully installed pyyaml-6.0.2
-$ pip3 install python-dateutil
-Successfully installed python-dateutil-2.9.0.post0 six-1.16.0
-$ brew install python-tk@3.13
-$ pip3 install paramiko
-Successfully installed bcrypt-4.2.0 cffi-1.17.1 cryptography-43.0.3 paramiko-3.5.0 pycparser-2.22 pynacl-1.5.0
+$ scp USERNAME@remote.location:/path/to/remote/adios-campaign-store/*.aca /path/to/localadios-campaign-store/
+gray-scott-derived-run1.aca                                                          100%   68KB 260.2KB/s   00:00
 ```
 
-ZFP was build with default parameters. ADIOS2 build uses the following options:
-```
-    -D ADIOS2_USE_ZFP=ON
-    -D ADIOS2_USE_Campaign=ON
-    -D ADIOS2_USE_Derived_Variable=ON
-    -D ADIOS2_BUILD_EXAMPLES=ON
-    -D ADIOS2_USE_PYTHON=ON
-    -D PYTHON_EXECUTABLE=/usr/local/bin/python3
-    -D Python_FIND_STRATEGY=LOCATION
-    -D BUILD_TESTING=OFF 
-```
-
-The `PYTHONPATH` environment variable needs to point to `path/to/adios2/install/lib/python{VERSION}/site-packages`
-
-## Campaign manager and connector
+### Campaign manager
  
 Repo: https://github.com/ornladios/hpc-campaign
 
-The campaign manager requires two configuration files: `hosts.yaml` and `adios2.yaml`
+The local campaign manager requires two configuration files: `hosts.yaml` and `adios2.yaml`
  
 Create the `~/.config/adios2/hosts.yaml` file:
 ```
@@ -224,10 +190,18 @@ Campaign:
 ```
 
 The hostname, campaignstorepath and cachepath need to be changed for each system.
- 
-### Campaign files
+
+### Inspecting campaign files
 
 Campaign files need to be stored into the `campaignstorepath` path. 
+
+```
+$ du -h ~/dropbox/adios-campaign-store/*.aca
+1.0M	frontier_s3d_001.aca
+ 68K	gray-scott-derived-run1.aca
+120K	run-488.aca
+```
+
 You can use subdirectories to organize campaigns but not required.
 
 ```
@@ -246,21 +220,35 @@ $ python3 ~/Software/hpc-campaign/source/hpc_campaign_manager/hpc_campaign_manag
 $ bpls -l csc143/demoproject/frontier_s3d_001.aca
 $ bpls -l csc143/gray-scott/ensemble1/run-488.aca
 ```
-
 The connector is not needed for just inspecting the metadata (variable info and location).
- 
+
+```
+$ ./bin/bpls gray-scott-derived-run1.aca
+  double   ckpt.bp/U                    {8, 66, 66, 66}
+  double   ckpt.bp/V                    {8, 66, 66, 66}
+  int32_t  ckpt.bp/step                 scalar
+  double   gs-derived.bp/U              200*{128, 128, 128}
+  double   gs-derived.bp/V              200*{128, 128, 128}
+  double   gs-derived.bp/derived/sumUV  200*{128, 128, 128}
+  int32_t  gs-derived.bp/step           200*scalar
+  double   pdf.bp/U/bins                200*{1000}
+  double   pdf.bp/U/pdf                 200*{128, 1000}
+  double   pdf.bp/V/bins                200*{1000}
+  double   pdf.bp/V/pdf                 200*{128, 1000}
+  int32_t  pdf.bp/step                  200*scalar
+```
+
 ### Connector
 
 The connector needs to be ran before reading the remote data:
 ```
-hpc-campaign/source/hpc_campaign_connector$ python3 ./hpc_campaign_connector.py -c ~/.config/adios2/hosts.yaml -p  30000
+hpc-campaign/source/hpc_campaign_connector$ python3 ./hpc_campaign_connector.py -c ~/.config/adios2/hosts.yaml -p 30000
  
 SSH Tunnel Server:  127.0.0.1 30000
 ```
 
 The remote server will timeout in an hour, but the connecter script will not know it. After one hour the python local instance needs to be killed.
- 
- 
+
 ### Testing remote access
 
 ADIOS2 can be ran as if the data was local.
@@ -324,5 +312,45 @@ Returning 1.2 MB for Get<double>(V) start = {0,0,0,0} count = {8,66,66,66}
 closing ADIOS file "/lustre/orion/csc143/world-shared/kmehta/gray-scott-ensemble/campaign/Du-0.2-Dv-0.1-F-0.01-k-0.05/ckpt.bp" total sent 18.8 MB in 2 Get()s
 ```
 
- 
+## Accuracy based queries
 
+### ADIOS build
+
+For now, the ADIOS branch that has accuracy enabled is in Norbert's repo:
+https://github.com/pnorbert/ADIOS2/tree/remote_compression
+
+**Dependencies:**
+ - ZFP 1.0.0 https://github.com/LLNL/zfp.git, tag 1.0.1
+ - SQLite 3  (libsqlite3-dev on Ubuntu)
+
+On MAC that had python both through Homebrew and external, use a virtual environment to install a Python library that isn't in Homebrew:
+```
+$ python3 -m venv ~/work/kits/pipve
+$ source  ~/work/kits/pipve/bin/activate
+```
+
+The following pip3 packages may need to be installed: paramiko, python-dateutil, python-yaml, sqlite3, python-tk@3.13 and dataclasses
+
+```
+$ pip3 install pyyaml
+Successfully installed pyyaml-6.0.2
+$ pip3 install python-dateutil
+Successfully installed python-dateutil-2.9.0.post0 six-1.16.0
+$ brew install python-tk@3.13
+$ pip3 install paramiko
+Successfully installed bcrypt-4.2.0 cffi-1.17.1 cryptography-43.0.3 paramiko-3.5.0 pycparser-2.22 pynacl-1.5.0
+```
+
+ZFP was build with default parameters. ADIOS2 build uses the following options:
+```
+    -D ADIOS2_USE_ZFP=ON
+    -D ADIOS2_USE_Campaign=ON
+    -D ADIOS2_USE_Derived_Variable=ON
+    -D ADIOS2_BUILD_EXAMPLES=ON
+    -D ADIOS2_USE_PYTHON=ON
+    -D PYTHON_EXECUTABLE=/usr/local/bin/python3
+    -D Python_FIND_STRATEGY=LOCATION
+    -D BUILD_TESTING=OFF 
+```
+
+The `PYTHONPATH` environment variable needs to point to `path/to/adios2/install/lib/python{VERSION}/site-packages`

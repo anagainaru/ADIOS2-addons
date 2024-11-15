@@ -18,18 +18,23 @@
 int rank, size;
 
 template <class MemSpace, class ExecSpace>
-int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const size_t Ny,
+int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const size_t Ny, const size_t Nz,
             const size_t nSteps, const std::string engine)
 {
     // Initialize the simulation data
 	int internal_rank = rank;
 	int internal_size = size;
-    Kokkos::View<float **, MemSpace> gpuSimData("simBuffer", Nx, Ny);
+	size_t Lx = static_cast<size_t>(2560 / Nx);
+	size_t Ly = static_cast<size_t>(960 / Ny);
+	size_t Lz = static_cast<size_t>(3456 / Nz);
+    Kokkos::View<float ***[19], MemSpace> gpuSimData("simBuffer", Lx, Ly, Lz);
     static_assert(Kokkos::SpaceAccessibility<ExecSpace, MemSpace>::accessible, "");
     Kokkos::parallel_for(
-        "initBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx), KOKKOS_LAMBDA(int i) {
-            for (int j = 0; j < Ny; j++)
-                gpuSimData(i, j) = static_cast<float>(j + i * internal_rank);
+        "initBuffer",
+		Kokkos::MDRangePolicy<ExecSpace, Kokkos::Rank<3>>({0, 0, 0}, {Lx, Ly, Lz}),
+		KOKKOS_LAMBDA(int x, int y, int z) {
+            for (int i = 0; i < 19; i++)
+                gpuSimData(x, y, z, i) = static_cast<float>(i * internal_rank + x + y + z);
         });
     Kokkos::fence();
 
@@ -42,10 +47,18 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
                              {"Timeout", "5"},
                              {"RendezvousReaderCount", "1"}});
     }
+	io.SetParameters({{"AggregationType", "EveryoneWrites"},
+					  {"NumAggregators", "900"},
+					  {"StatsLevel", "1"}});
 
-    const adios2::Dims shape{Nx, size * Ny};
-    const adios2::Dims start{0, rank * Ny};
-    const adios2::Dims count{Nx, Ny};
+	const size_t index_z = rank % Nz;
+	const size_t index_y = static_cast<size_t>(rank / Nz) % Ny;
+	const size_t index_x = static_cast<size_t>(rank / (Nz * Ny));
+	std::cout << "[debug] Rank " << rank << " Index " << index_x << " " << index_y << " " << index_z << std::endl;
+
+    const adios2::Dims shape{2560, 960, 3456, 19};
+    const adios2::Dims start{Lx * index_x, Ly * index_y, Lz*index_z, 0};
+    const adios2::Dims count{Lx, Ly, Lz, 19};
     auto data = io.DefineVariable<float>("dataFloats", shape, start, count);
 
     adios2::Engine engineWriter = io.Open(fname, adios2::Mode::Write);
@@ -55,7 +68,6 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
     {
         auto tm_start = std::chrono::steady_clock::now();
         engineWriter.BeginStep();
-        // var.SetMemorySpace(adios2::MemorySpace::GPU);
         engineWriter.Put(data, gpuSimData.data());
         engineWriter.EndStep();
         auto tm_end = std::chrono::steady_clock::now();
@@ -67,17 +79,18 @@ int writer(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const
                    MPI_COMM_WORLD);
         if (rank == 0)
         {
-            std::cout << "Write2D " << engine << " " << exe_space.name() << " "
-                      << Nx * Ny * sizeof(float) / (1024.*1024) << " " << global_put_time
-                      << " " << Nx * Ny * sizeof(float) / (1024. * 1024 * 1024 * global_put_time)
-                      << " units:MB:s:GB/s" << std::endl;
+            std::cout << "Write4D " << engine << " " << exe_space.name() << " "
+                      << 19 * Lx * Ly * Lz * sizeof(float) / (1024.*1024*1024) << " " << global_put_time
+                      << " units:GB:s" << std::endl;
         }
 
         // Update values in the simulation data
         Kokkos::parallel_for(
-            "updateBuffer", Kokkos::RangePolicy<ExecSpace>(0, Nx), KOKKOS_LAMBDA(int i) {
-                for (int j = 0; j < Ny; j++)
-                    gpuSimData(i, j) += (10 / internal_size);
+            "updateBuffer",
+			Kokkos::MDRangePolicy<ExecSpace, Kokkos::Rank<3>>({0, 0, 0}, {Lx, Ly, Lz}),
+			KOKKOS_LAMBDA(int x, int y, int z) {
+                for (int i = 0; i < 19; i++)
+                    gpuSimData(x, y, z, i) += (10 / internal_size);
             });
         Kokkos::fence();
     }
@@ -90,7 +103,7 @@ int main(int argc, char **argv)
 {
     if (argc < 4)
     {
-        std::cout << "Usage: " << argv[0] << " engine size_dim1 size_dim2 steps device/host [outputFile]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " engine size_decomp1 size_decomp2 size_decomp3 steps device/host [outputFile]" << std::endl;
         return 1;
     }
     int provided;
@@ -102,28 +115,29 @@ int main(int argc, char **argv)
     if (rank == 0)
         std::cout << "Engine: " << engine << std::endl;
 
-    const std::string filename = argv[6] ? argv[6] : engine + "StepsWriteReadCuda";
-    const unsigned int nSteps = std::stoi(argv[4]);
+    const std::string filename = argv[7] ? argv[7] : engine + "StepsWriteReadCuda";
+    const unsigned int nSteps = std::stoi(argv[5]);
     const unsigned int Nx = std::stoi(argv[2]);
     const unsigned int Ny = std::stoi(argv[3]);
-    const std::string memorySpace = argv[5];
+    const unsigned int Nz = std::stoi(argv[4]);
+    const std::string memorySpace = argv[6];
 
     Kokkos::initialize(argc, argv);
     {
-        adios2::ADIOS adios;
+        adios2::ADIOS adios(MPI_COMM_WORLD);
         if (memorySpace == "device" || memorySpace == "Device")
         {
             using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
             if (rank == 0)
                 std::cout << "Memory space: DefaultMemorySpace" << std::endl;
-            writer<mem_space, Kokkos::DefaultExecutionSpace>(adios, filename, Nx, Ny,
+            writer<mem_space, Kokkos::DefaultExecutionSpace>(adios, filename, Nx, Ny, Nz,
                                                               nSteps, engine);
         }
         else
         {
             if (rank == 0)
                 std::cout << "Memory space: HostSpace" << std::endl;
-            writer<Kokkos::HostSpace, Kokkos::Serial>(adios, filename, Nx, Ny, nSteps,
+            writer<Kokkos::HostSpace, Kokkos::Serial>(adios, filename, Nx, Ny, Nz, nSteps,
                                                        engine);
         }
     }

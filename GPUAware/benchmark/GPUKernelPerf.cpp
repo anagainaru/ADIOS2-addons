@@ -10,8 +10,8 @@
 #include <chrono>
 
 
-double GPUAdd(Kokkos::View<double **, Kokkos::DefaultExecutionSpace::memory_space> data,
-              Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> dest)
+double GPUAdd(Kokkos::View<double **> data,
+              Kokkos::View<double *> dest)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
@@ -45,8 +45,8 @@ double CPUAdd(std::vector<std::vector<double>> inputData, std::vector<double> ou
     return timer.seconds();
 }
 
-double GPUMagnitude(Kokkos::View<double **, Kokkos::DefaultExecutionSpace::memory_space> data,
-                    Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> dest)
+double GPUMagnitude(Kokkos::View<double **> data,
+                    Kokkos::View<double *> dest)
 {
     Kokkos::fence();
     Kokkos::Timer timer;
@@ -57,7 +57,7 @@ double GPUMagnitude(Kokkos::View<double **, Kokkos::DefaultExecutionSpace::memor
       "magnitude", size,
       KOKKOS_LAMBDA(int i) {
             dest(i) = 0;
-            for (int j=0; j<size; j++)
+            for (int j=0; j<numVar; j++)
             {
                 dest(i) += data(i, j) * data(i, j);
             }
@@ -84,7 +84,7 @@ double CPUMagnitude(std::vector<std::vector<double>> inputData, std::vector<doub
     return timer.seconds();
 }
 
-double GPUCopy(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data,
+double GPUCopy(Kokkos::View<double *> data,
                Kokkos::View<double *, Kokkos::HostSpace> dest)
 {
     Kokkos::fence();
@@ -101,7 +101,7 @@ double CPUCopy(std::vector<double> data, std::vector<double> dest)
     return timer.seconds();
 }
 
-double GPUMinMax(Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> data,
+double GPUMinMax(Kokkos::View<double *> data,
                  size_t size, double &ret)
 {
     Kokkos::fence();
@@ -188,12 +188,12 @@ void derived_tests(size_t size, size_t numVar)
             sumElem += cpuData[0];
             magElem += (cpuData[0] * cpuData[0]);
         }
-        Kokkos::View<double **, Kokkos::DefaultExecutionSpace::memory_space> gpuList("derivedBuf", size, numVar);
+        Kokkos::View<double **> gpuList("derivedBuf", size, numVar);
         Kokkos::parallel_for(
         "initialize", size,
         KOKKOS_LAMBDA(int i) {
             auto generator = random_pool.get_state();
-            for (int j=0; j<numVar; i++)
+            for (int j=0; j<numVar; j++)
             {
                 gpuList(i, j) = generator.drand(0., 1.);
             }
@@ -201,18 +201,18 @@ void derived_tests(size_t size, size_t numVar)
         });
 
         std::vector<double> destCPU(size);
-        Kokkos::View<double *, Kokkos::DefaultExecutionSpace::memory_space> destGPU("derivedDest", size);
+        Kokkos::View<double *> destGPU("derivedDest", size);
         auto timeGPU = GPUAdd(gpuList, destGPU);
         auto timeCPU = CPUAdd(cpuList, destCPU);
         if (sumElem != destCPU[0]) std::cout << "ERROR value mismatch in add" << std::endl;
         std::cout << "Add " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
+                  << timeGPU << " " << timeCPU << " numvar " << numVar << std::endl;
 
         timeGPU = GPUMagnitude(gpuList, destGPU);
         timeCPU = CPUMagnitude(cpuList, destCPU);
         if (magElem != destCPU[0]) std::cout << "ERROR value mismatch in magnitude" << std::endl;
         std::cout << "Magnitude " << i << " " << (size * sizeof(double)) / (1024 * 1024) << " "
-                  << timeGPU << " " << timeCPU << std::endl;
+                  << timeGPU << " " << timeCPU << " numvar " << numVar << std::endl;
     }
 }
 
@@ -222,11 +222,11 @@ int main(int argc, char **argv)
     using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
     Kokkos::DefaultExecutionSpace exe_space;
     std::cout << "DefaultMemorySpace : " << exe_space.name() <<  std::endl;
-    std::vector<size_t> size_list = {25*1048576, 50*1048576, 100*1048576, 200*1048576, 400*1048576};
-    std::vector<size_t> variable_list = {2, 10, 100};
+    std::vector<size_t> size_list = {50*1048576};
+    std::vector<size_t> variable_list = {2, 4, 8, 16};
     for (const size_t& size:size_list)
     {
-        default_tests(size);
+        //default_tests(size);
         for (const size_t& numVar:variable_list)
             derived_tests(size, numVar);
     }

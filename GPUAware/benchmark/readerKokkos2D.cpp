@@ -18,7 +18,7 @@
 int rank, size;
 
 template <class MemSpace, class ExecSpace>
-int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const size_t Ny,
+int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const size_t Ny, const size_t Nz,
          const std::string engine)
 {
     adios2::IO io = adios.DeclareIO("ReadIO");
@@ -27,15 +27,21 @@ int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const s
         io.SetParameters({{"IPAddress", "127.0.0.1"}, {"Port", "12306"}, {"Timeout", "5"}});
 
     adios2::Engine engineReader = io.Open(fname, adios2::Mode::Read);
+	size_t Lx = static_cast<size_t>(2560 / Nx);
+	size_t Ly = static_cast<size_t>(960 / Ny);
+	size_t Lz = static_cast<size_t>(3456 / Nz);
+	const size_t index_z = rank % Nz;
+	const size_t index_y = static_cast<size_t>(rank / Nz) % Ny;
+	const size_t index_x = static_cast<size_t>(rank / (Nz * Ny));
 
     unsigned int step = 0;
-    Kokkos::View<float **, MemSpace> gpuSimData("simBuffer", Nx, Ny);
+    Kokkos::View<float ***[19], MemSpace> gpuSimData("simBuffer", Lx, Ly, Lz);
     ExecSpace exe_space;
     for (; engineReader.BeginStep() == adios2::StepStatus::OK; ++step)
     {
         auto data = io.InquireVariable<float>("dataFloats");
-        const adios2::Dims start{0, rank * Ny};
-        const adios2::Dims count{Nx, Ny};
+		const adios2::Dims start{Lx * index_x, Ly * index_y, Lz*index_z, 0};
+		const adios2::Dims count{Lx, Ly, Lz, 19};
         const adios2::Box<adios2::Dims> sel(start, count);
         data.SetSelection(sel);
 
@@ -51,10 +57,9 @@ int read(adios2::ADIOS &adios, const std::string fname, const size_t Nx, const s
                    MPI_COMM_WORLD);
         if (rank == 0)
         {
-            std::cout << "Read2D " << engine << " " << exe_space.name() << " "
-                      << Nx * Ny * sizeof(float) / (1024.*1024) << " " << global_get_time
-                      << " " << Nx * Ny * sizeof(float) / (1024. * 1024 * 1024 * global_get_time)
-                      << " units:MB:s:GB/s" << std::endl;
+            std::cout << "Read4D " << engine << " " << exe_space.name() << " "
+                      << 19 * Lx * Ly * Lz * sizeof(float) / (1024.*1024*1024) << " " << global_get_time
+                      << " units:GB:s" << std::endl;
         }
     }
     engineReader.Close();
@@ -65,7 +70,7 @@ int main(int argc, char **argv)
 {
     if (argc < 4)
     {
-        std::cout << "Usage: " << argv[0] << " engine inputFile size_dim1 size_dim2 device/host" << std::endl;
+        std::cout << "Usage: " << argv[0] << " engine inputFile size_decomp1 size_decomp2 size_decomp3 device/host" << std::endl;
         return 1;
     }
     int provided;
@@ -81,25 +86,26 @@ int main(int argc, char **argv)
     const std::string filename = argv[2] ? argv[2] : engine + "WriteReadKokkos.bp";
     const unsigned int Nx = std::stoi(argv[3]);
     const unsigned int Ny = std::stoi(argv[4]);
-    const std::string memorySpace = argv[5];
+    const unsigned int Nz = std::stoi(argv[5]);
+    const std::string memorySpace = argv[6];
 
     Kokkos::initialize(argc, argv);
     {
-        adios2::ADIOS adios;
+        adios2::ADIOS adios(MPI_COMM_WORLD);
 
         if (memorySpace == "device" || memorySpace == "Device")
         {
             using mem_space = Kokkos::DefaultExecutionSpace::memory_space;
             if (rank == 0)
                 std::cout << "Memory space: DefaultMemorySpace" << std::endl;
-            read<mem_space, Kokkos::DefaultExecutionSpace>(adios, filename, Nx, Ny,
+            read<mem_space, Kokkos::DefaultExecutionSpace>(adios, filename, Nx, Ny, Nz,
                                                              engine);
         }
         else
         {
             if (rank == 0)
                 std::cout << "Memory space: HostSpace" << std::endl;
-            read<Kokkos::HostSpace, Kokkos::Serial>(adios, filename, Nx, Ny, engine);
+            read<Kokkos::HostSpace, Kokkos::Serial>(adios, filename, Nx, Ny, Nz, engine);
         }
     }
     Kokkos::finalize();

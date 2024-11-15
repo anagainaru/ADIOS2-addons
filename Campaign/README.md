@@ -1,11 +1,154 @@
 # Campaign management system
 
-The campaign management includes:
+The campaign management readme includes:
 - Access to variables across multiple runs
-- Remote access
-- Setting the accuracy of a read
+- Remote access (remote and local side set-ups)
+- Setting the accuracy of a read (primary and derived variables)
+  
+## Remote side (where the data resides)
 
-## ADIOS build
+### Setup remote access
+
+Create a folder for installing adios2 (e.g. `~/dtn/sw/adios2`) and install ADIOS2 to this location with the options needed for the remote access (derived variables, compression etc. if they are used to answer a request). 
+
+**Frontier:** For the DTN nodes on Frontier, login to the dtn nodes (dtn.olcf.ornl.gov) and use the following parameters to install ADIOS2:
+
+```cmake
+        -DCMAKE_INSTALL_PREFIX=/path/to/dtn/sw/adios2 \
+        -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-multiple-definition" \
+        -DCMAKE_CXX_STANDARD_LIBRARIES=-lstdc++fs \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DADIOS2_BUILD_EXAMPLES=OFF \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+        -DBUILD_TESTING=OFF \
+        -DCMAKE_PREFIX_PATH="/ccs/home/pnorbert/dtn/sw/zfp" \
+        -DADIOS2_USE_Fortran=OFF \
+        -DADIOS2_USE_DataMan=OFF \
+        -DADIOS2_USE_HDF5=OFF \
+        -DADIOS2_USE_Python=OFF \
+        -DADIOS2_USE_MGARD=OFF \
+        -DADIOS2_USE_AWSSDK=OFF \
+        -DADIOS2_USE_SST=ON \
+        -DADIOS2_USE_Derived_Variable=ON \
+        -DADIOS2_INSTALL_GENERATE_CONFIG=OFF \
+```
+
+To check the configuration of an installation use `bpls`
+```
+$ ~/dtn/sw/adios2/bin/bpls -vV
+blps: ADIOS file introspection utility
+
+Build configuration:
+ADIOS version: 2.10.0
+C++ Compiler:  GNU 8.5.0
+Target OS:     Linux-4.18.0-553.16.1.el8_10.x86_64
+Target Arch:   x86_64
+Available engines = 8: BP3, BP4, BP5, SST, Inline, MHS, Null, Skeleton
+Available operators = 1: ZFP
+Available features = 6: BP3BP4BP5MHS, SST, ZFP, O_DIRECT, SYSVSHMEM, DERIVED_VARIABLE
+```
+
+### Create the campaign files
+
+**Dependencies:**
+
+ - SQLite 3  (libsqlite3-dev on Ubuntu)
+   
+The remote server needs to have an `adios2.yaml` file in ` ~/.config/adios2/` with the location of the campaign files and caches (for writing the cache path is not used).
+
+```
+Campaign:
+  active: true
+  hostname: OLCF
+  campaignstorepath: /path/to/adios-campaign-store
+  cachepath: /path/to/campaign-cache
+  verbose: 0
+```
+
+**Frontier:** I used the default modules on Frontier (script from adios2 repo) to build ADIOS2 with derived variables and campaign management ON. 
+```
+module load PrgEnv-gnu-amd/8.5.0
+module load craype-accel-amd-gfx90a
+module load cmake/3.27.9
+module load cray-python/3.11.5
+
+$ ./install-kokkos-frontier/bin/bpls -vV
+blps: ADIOS file introspection utility
+
+Build configuration:
+ADIOS version: 2.10.0
+C++ Compiler:  GNU 12.3.0
+Target OS:     Linux-5.14.21-150500.55.49_13.0.57-cray_shasta_c
+Target Arch:   x86_64
+Available engines = 9: BP3, BP4, BP5, SST, SSC, Inline, MHS, Null, Skeleton
+Available operators = 2: BZip2, PNG
+Available features = 18: BP3BP4BP5DATAMAN, MHS, SST, FORTRAN, MPI, PYTHON, BZIP2, PNG, O_DIRECT, SODIUM, SYSVSHMEM, ZEROMQ, PROFILING, DERIVED_VARIABLE, GPU_SUPPORT, KOKKOS, KOKKOS_HIP, CAMPAIGN
+```
+
+Applications ran normally and create `bp` files. While the `adios2.yaml` file exists (and the active field is set to true), there will be an additional folder created wherever the execution took place with sqlite files.
+
+```
+$ ls -la
+drwxr-sr-x  5 againaru csc143 99328 Nov 15 12:36 .
+drwxr-sr-x 11 againaru csc143 99328 Nov 15 10:40 ..
+drwxr-sr-x  2 againaru csc143 99328 Nov 15 12:39 .adios-campaign
+drwxr-sr-x  2 againaru csc143 99328 Nov 15 12:22 gs-derived.bp
+```
+
+**Create/Update campaign files**
+
+Repo: https://github.com/ornladios/hpc-campaign
+- Contains the `hpc_campaign_manager.py` file to create/update campaign files
+
+If the create command is called from the same folder where the `.adios-campaign` files are, the `bp` files are identified automatically. Otherwise, the path to the file needs to be given explicitly.
+
+```
+$ ./hpc-campaign/source/hpc_campaign_manager/hpc_campaign_manager.py create gray-scott-derived-run1.aca -f /path/to/gray-scott-ensemble/Du-0.2-Dv-0.1-F-0.01-k-0.05/gs-derived.bp
+Create archive
+Inserted host OLCF into database, rowid = 1
+Inserted directory /path/to/gray-scott-ensemble/Du-0.2-Dv-0.1-F-0.01-k-0.05 into database, rowid = 1
+Process entry gs-derived.bp:
+Add dataset gs-derived.bp to archive
+
+$ ls /path/to/adios-campaign-store
+gray-scott-derived-run1.aca
+
+$ ./hpc-campaign/source/hpc_campaign_manager/hpc_campaign_manager.py info gray-scott-derived-run1.aca
+info archive
+ADIOS Campaign Archive, version 0.1, created on 2024-11-15 15:29:18.552364
+hostname = OLCF   longhostname = frontier.olcf.ornl.gov
+    dir = /path/to/gray-scott-ensemble/Du-0.2-Dv-0.1-F-0.01-k-0.05
+        dataset = gs-derived.bp     created on 2024-11-15 12:02:03
+```
+
+Other bp files can be updated to the campaign management file by running the update option in the hpc_campaign_manager.py script.
+
+```
+$ ./hpc-campaign/source/hpc_campaign_manager/hpc_campaign_manager.py update gray-scott-derived-run1.aca -f ckpt.bp
+update archive
+Found host OLCF in database, rowid = 1
+Inserted directory /path/to/gray-scott-ensemble/campaign/Du-0.2-Dv-0.1-F-0.01-k-0.05 into database, rowid = 2
+Process entry ckpt.bp:
+Add dataset ckpt.bp to archive
+```
+
+Each folder will have a separate entry containing all the bp files added from the folder.
+
+```
+./hpc-campaign/source/hpc_campaign_manager/hpc_campaign_manager.py info gray-scott-derived-run1.aca
+info archive
+ADIOS Campaign Archive, version 0.1, created on 2024-11-15 15:36:32.881251
+hostname = OLCF   longhostname = frontier.olcf.ornl.gov
+    dir = /path/to/first/gray-scott-ensemble/Du-0.2-Dv-0.1-F-0.01-k-0.05
+        dataset = gs-derived.bp     created on 2024-11-15 12:02:03
+    dir = /path/to/second/gray-scott-ensemble/campaign/Du-0.2-Dv-0.1-F-0.01-k-0.05
+        dataset = ckpt.bp     created on 2024-04-18 14:21:57
+        dataset = pdf.bp     created on 2024-04-18 14:22:50
+```
+
+## Local side (where the query occurs)
+
+### ADIOS build
 
 For now, the ADIOS branch that has accuracy enabled is in Norbert's repo:
 https://github.com/pnorbert/ADIOS2/tree/remote_compression
@@ -44,6 +187,8 @@ ZFP was build with default parameters. ADIOS2 build uses the following options:
     -D BUILD_TESTING=OFF 
 ```
 
+The `PYTHONPATH` environment variable needs to point to `path/to/adios2/install/lib/python{VERSION}/site-packages`
+
 ## Campaign manager and connector
  
 Repo: https://github.com/ornladios/hpc-campaign
@@ -64,7 +209,7 @@ OLCF:
       host: dtn.olcf.ornl.gov
       user: YOURUSERNAME
       authentication: passcode
-      serverpath: ~pnorbert/dtn/sw/adios2/bin/adios2_remote_server -background -report_port_selection -v -v -l /ccs/home/YOURUSERNAME/log.adios2_remote_server
+      serverpath: ~{REMOTE_USERNAME}/dtn/sw/adios2/bin/adios2_remote_server -background -report_port_selection -v -v -l /ccs/home/YOURUSERNAME/log.adios2_remote_server
       verbose: 1
 ```
 

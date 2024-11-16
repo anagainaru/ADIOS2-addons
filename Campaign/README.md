@@ -4,7 +4,9 @@ The campaign management readme includes:
 - Access to variables across multiple runs
 - Remote access (remote and local side set-ups)
 - Setting the accuracy of a read (primary and derived variables)
-  
+
+The versions on ADIOS2 on the remote and local sides needs to be the same. For querying on accuracy, this version has to be the one in Norbert's repo (https://github.com/pnorbert/ADIOS2) the `remote_compression` branch. 
+
 ## Remote side (where the data resides)
 
 ### Setup remote access
@@ -238,6 +240,8 @@ $ ./bin/bpls gray-scott-derived-run1.aca
   int32_t  pdf.bp/step                  200*scalar
 ```
 
+The `--show-derived` option is currently only working for bp files and not aca files.
+
 ### Connector
 
 The connector needs to be ran before reading the remote data:
@@ -290,10 +294,6 @@ Example using the python API
 {'ckpt.bp/U': {'AvailableStepsCount': '1', 'Max': '1', 'Min': '0.0964156', 'Shape': '8, 66, 66, 66', 'SingleValue': 'false', 'Type': 'double'}, 'ckpt.bp/V': {'AvailableStepsCount': '1', 'Max': '0.478857', 'Min': '2.44533e-48', 'Shape': '8, 66, 66, 66', 'SingleValue': 'false', 'Type': 'double'}, 'ckpt.bp/step': {'AvailableStepsCount': '1', 'Max': '1400', 'Min': '1400', 'Shape': '', 'SingleValue': 'true', 'Type': 'int32_t'}, 'gs.bp/U': {'AvailableStepsCount': '200', 'Max': '1', 'Min': '0.0813067', 'Shape': '128, 128, 128', 'SingleValue': 'false', 'Type': 'double'}, 'gs.bp/V': {'AvailableStepsCount': '200', 'Max': '0.674805', 'Min': '0', 'Shape': '128, 128, 128', 'SingleValue': 'false', 'Type': 'double'}, 'gs.bp/step': {'AvailableStepsCount': '200', 'Max': '2000', 'Min': '10', 'Shape': '', 'SingleValue': 'true', 'Type': 'int32_t'}, 'pdf.bp/U/bins': {'AvailableStepsCount': '200', 'Max': '0.999175', 'Min': '0.0813067', 'Shape': '1000', 'SingleValue': 'false', 'Type': 'double'}, 'pdf.bp/U/pdf': {'AvailableStepsCount': '200', 'Max': '16384', 'Min': '0', 'Shape': '128, 1000', 'SingleValue': 'false', 'Type': 'double'}, 'pdf.bp/V/bins': {'AvailableStepsCount': '200', 'Max': '0.67413', 'Min': '0', 'Shape': '1000', 'SingleValue': 'false', 'Type': 'double'}, 'pdf.bp/V/pdf': {'AvailableStepsCount': '200', 'Max': '16384', 'Min': '0', 'Shape': '128, 1000', 'SingleValue': 'false', 'Type': 'double'}, 'pdf.bp/step': {'AvailableStepsCount': '200', 'Max': '2000', 'Min': '10', 'Shape': '', 'SingleValue': 'true', 'Type': 'int32_t'}}
 >>> u = f.read("ckpt.bp/U")
 ReadResponseHandler: response size = 18399744 operator type [127]
->>> vu = f.inquire_variable("ckpt.bp/V")
->>> vu.set_accuracy(0.1, 0.0, False)
->>> u = f.read(vu)
-ReadResponseHandler: response size = 1299478 operator type [7]
 ```
 
 ### Inspecting the logs
@@ -354,3 +354,20 @@ ZFP was build with default parameters. ADIOS2 build uses the following options:
 ```
 
 The `PYTHONPATH` environment variable needs to point to `path/to/adios2/install/lib/python{VERSION}/site-packages`
+
+Setting the accuracy will compress the data using zfp on the remote side and only send the data that matches the accuracy requested. The query works for derived variables as well, the remote server reads all the primary data, computes the derived data, compresses the derived data using zfp and transfers the compressed data. Example using the python API
+
+```python
+>>> import adios2
+>>> f = adios2.FileReader("gray-scott-derived-run1.aca")
+>>> u = f.read("ckpt.bp/U")
+ReadResponseHandler: response size = 18399744 operator type [127]
+>>> vu = f.inquire_variable("ckpt.bp/V")
+>>> vu.set_accuracy(0.1, 0.0, False)
+>>> u = f.read(vu)
+ReadResponseHandler: response size = 1299478 operator type [7]
+>>> sumuv = f.inquire_variable("gs-derived.bp/derived/sumUV")
+>>> sumuv.set_accuracy(0.1, 0.0, False)
+>>> u = f.read(sumuv)
+ReadResponseHandler: response size = 157366 operator type [7]
+```

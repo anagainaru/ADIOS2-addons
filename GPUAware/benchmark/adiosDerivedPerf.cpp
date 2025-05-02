@@ -67,7 +67,7 @@ template <class T>
 double CPUMinMax(T *data_ptr, size_t size)
 {
     Kokkos::Timer timer;
-    std::vector<T> data(data_ptr);
+    std::vector<T> data(data_ptr, data_ptr + size);
     auto [min, max] = std::minmax_element(data.begin(), data.end());
     return timer.seconds();
 }

@@ -31,6 +31,8 @@ double CPUAdd(std::vector<std::vector<double>> inputData,
               std::vector<double> &outValues) {
   Kokkos::Timer timer;
   size_t dataSize = inputData[0].size();
+  for (size_t i = 0; i < dataSize; i++)
+     outValues[i] = 0;
   for (auto &variable : inputData) {
     for (size_t i = 0; i < dataSize; i++) {
       outValues[i] = outValues[i] + variable[i];
@@ -47,11 +49,15 @@ double GPUMagnitude(
   double mag = 0;
   int size = data.extent(0);
   int numVar = data.extent(1);
-  Kokkos::parallel_for("magnitude", size, KOKKOS_LAMBDA(int i) {
+  Kokkos::parallel_for("magnitude-p1", size, KOKKOS_LAMBDA(int i) {
     dest(i) = 0;
-    for (int j = 0; j < size; j++) {
+    for (int j = 0; j < numVar; j++) {
       dest(i) += data(i, j) * data(i, j);
     }
+  });
+  Kokkos::fence();
+  Kokkos::parallel_for("magnitude-p2", size, KOKKOS_LAMBDA(int i) {
+    dest(i) = Kokkos::sqrt(dest(i));
   });
   Kokkos::fence();
   return timer.seconds();
@@ -61,6 +67,8 @@ double CPUMagnitude(std::vector<std::vector<double>> inputData,
                     std::vector<double> &outValues) {
   Kokkos::Timer timer;
   size_t dataSize = inputData[0].size();
+  for (size_t i = 0; i < dataSize; i++)
+     outValues[i] = 0;
   for (auto &variable : inputData) {
     for (size_t i = 0; i < dataSize; i++) {
       outValues[i] = outValues[i] + variable[i] * variable[i];
@@ -118,16 +126,16 @@ inline size_t returnIndex(size_t x, size_t y, size_t z, size_t dims[3]) {
 double CPUCurl(std::vector<double> inputData[3], size_t dims[3],
                std::vector<double> &outValues) {
   Kokkos::Timer timer;
-  size_t index = 0;
-  for (size_t k = 0; k < dims[2]; ++k) {
-    size_t next_k = std::max((size_t)0, k - 1),
-           prev_k = std::min(dims[2] - 1, k + 1);
-    for (size_t j = 0; j < dims[1]; ++j) {
-      size_t next_j = std::max((size_t)0, j - 1),
-             prev_j = std::min(dims[1] - 1, j + 1);
-      for (size_t i = 0; i < dims[0]; ++i) {
-        size_t next_i = std::max((size_t)0, i - 1),
-               prev_i = std::min(dims[0] - 1, i + 1);
+  int index = 0;
+  for (int k = 0; k < dims[2]; ++k) {
+    int next_k = std::max(0, k - 1);
+    int prev_k = std::min((int) dims[2] - 1, k + 1);
+    for (int j = 0; j < dims[1]; ++j) {
+      int next_j = std::max(0, j - 1),
+          prev_j = std::min((int) dims[1] - 1, j + 1);
+      for (int i = 0; i < dims[0]; ++i) {
+        int next_i = std::max(0, i - 1);
+        int prev_i = std::min((int) dims[0] - 1, i + 1);
         // curl[0] = dv2 / dy - dv1 / dz
         outValues[3 * index] = (inputData[2][returnIndex(i, next_j, k, dims)] -
                                 inputData[2][returnIndex(i, prev_j, k, dims)]) /
@@ -210,7 +218,7 @@ void default_tests(size_t size) {
   std::uniform_int_distribution<int> dist{1, 52};
 
   auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
-  for (size_t i = 1; i < 4; i++) {
+  for (size_t loop = 1; loop < 10; loop++) {
     std::vector<double> cpuData(size);
     std::generate(cpuData.begin(), cpuData.end(), gen);
     Kokkos::View<double *, Kokkos::HostSpace,
@@ -225,7 +233,7 @@ void default_tests(size_t size) {
     auto timeCPU = CPUMinMax(cpuData, statsCPU);
     if (statsGPU != statsCPU)
       std::cout << "DEBUG Error: value mismatch in minmax" << std::endl;
-    std::cout << "MinMax " << i << " "
+    std::cout << "MinMax " << loop << " "
               << (size * sizeof(double)) / (1024 * 1024) << " " << timeGPU
               << " " << timeCPU << std::endl;
 
@@ -235,7 +243,7 @@ void default_tests(size_t size) {
     timeCPU = CPUCopy(cpuData, destCPU);
     if (destGPU[0] != destCPU[0])
       std::cout << "DEBUG Error: value mismatch in copy" << std::endl;
-    std::cout << "Copy " << i << " " << (size * sizeof(double)) / (1024 * 1024)
+    std::cout << "Copy " << loop << " " << (size * sizeof(double)) / (1024 * 1024)
               << " " << timeGPU << " " << timeCPU << std::endl;
   }
 }
@@ -249,9 +257,9 @@ void derived_tests(size_t size, size_t numVar) {
   auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
 
-  for (size_t i = 1; i < 4; i++) {
+  for (size_t loop = 1; loop < 10; loop++) {
     std::vector<std::vector<double>> cpuList;
-    int sumElem = 0, magElem = 0;
+    float sumElem = 0, magElem = 0;
     for (int var = 0; var < numVar; var++) {
       std::vector<double> cpuData(size);
       std::generate(cpuData.begin(), cpuData.end(), gen);
@@ -265,7 +273,7 @@ void derived_tests(size_t size, size_t numVar) {
         gpuList("derivedBuf", size, numVar);
     Kokkos::parallel_for("initialize", size, KOKKOS_LAMBDA(int i) {
       auto generator = random_pool.get_state();
-      for (int j = 0; j < numVar; i++) {
+      for (int j = 0; j < numVar; j++) {
         gpuList(i, j) = generator.drand(0., 1.);
       }
       random_pool.free_state(generator);
@@ -277,15 +285,15 @@ void derived_tests(size_t size, size_t numVar) {
     auto timeGPU = GPUAdd(gpuList, destGPU);
     auto timeCPU = CPUAdd(cpuList, destCPU);
     if (sumElem != destCPU[0])
-      std::cout << "DEBUG Error: value mismatch in add" << std::endl;
-    std::cout << "Add " << i << " " << (size * sizeof(double)) / (1024 * 1024)
+      std::cout << "DEBUG Error: value mismatch in add: " << sumElem << " " << destCPU[0] << std::endl;
+    std::cout << "Add " << loop << " " << (size * sizeof(double)) / (1024 * 1024)
               << " " << timeGPU << " " << timeCPU << std::endl;
 
     timeGPU = GPUMagnitude(gpuList, destGPU);
     timeCPU = CPUMagnitude(cpuList, destCPU);
-    if (magElem != destCPU[0])
-      std::cout << "DEBUG Error: value mismatch in magnitude" << std::endl;
-    std::cout << "Magnitude " << i << " "
+    if (std::abs(magElem - destCPU[0]) > 0.01)
+      std::cout << "DEBUG Error: value mismatch in magnitude: " << magElem << " " << destCPU[0] << std::endl;
+    std::cout << "Magnitude " << loop << " "
               << (size * sizeof(double)) / (1024 * 1024) << " " << timeGPU
               << " " << timeCPU << std::endl;
   }
@@ -302,7 +310,7 @@ void curl_tests(size_t dimx, size_t dimy, size_t dimz) {
   auto gen = [&dist, &mersenne_engine]() { return dist(mersenne_engine); };
   Kokkos::Random_XorShift64_Pool<> random_pool(/*seed=*/12345);
 
-  for (size_t i = 1; i < 4; i++) {
+  for (size_t loop = 1; loop < 10; loop++) {
     std::vector<double> cpuData1(size);
     std::vector<double> cpuData2(size);
     std::vector<double> cpuData3(size);
@@ -333,7 +341,7 @@ void curl_tests(size_t dimx, size_t dimy, size_t dimz) {
     auto timeGPU = GPUCurl(gpuData1, gpuData2, gpuData3, destGPU);
     auto timeCPU = CPUCurl(cpuList, dims, destCPU);
     std::cout << "DEBUG First curl value " << destCPU[0] << std::endl;
-    std::cout << "Curl " << i << " " << (size * sizeof(double)) / (1024 * 1024)
+    std::cout << "Curl " << loop << " " << (size * sizeof(double)) / (1024 * 1024)
               << " " << timeGPU << " " << timeCPU << dims[0] << dims[1]
               << dims[2] << std::endl;
   }

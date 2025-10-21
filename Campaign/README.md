@@ -11,7 +11,7 @@ Instructions to install: https://hpc-campaign.readthedocs.io/en/latest/installat
 (.venv) $ hpc_campaign list
 ```
 
-Create a folder `~/.config/hpc-campaign/` that will store all the data used in the campaign management.
+Create a folder `~/.config/hpc-campaign/` that will store the `config.yaml` file that points to the data used in the campaign management.
 
 **Configuration options**
 

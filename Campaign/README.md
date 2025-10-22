@@ -117,3 +117,7 @@ $ ./bin/bpls -l /lustre/orion/csc143/proj-shared/againaru/campaign-store/picongp
   float     run/002_lwfa/simOutput/openPMD/simOutput_fields_150000.bp/data/150000/fields/n_all_chargeDensity               {512, 1920, 1} = 0 / 0
   float     run/002_lwfa/simOutput/openPMD/simOutput_fields_150000.bp/data/150000/fields/n_all_energyDensity               {512, 1920, 1} = 0 / 0
 ```
+
+## Query over campaigns
+
+More in the [query.md](query.md) file

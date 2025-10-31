@@ -13,8 +13,7 @@ The Campaign engine in ADIOS can read campaign files in the default folder witho
 **Python example script for querying campaign files**
 
 ```
-$ python query_attribute_read_variable.py -h
-usage: query_attribute_read_variable.py [-h] --read_variables [READ_VARIABLES ...] [--keyword KEYWORD] [--value VALUE] [--path PATH] name
+usage: query_campaigns.py [-h] --read_variables [READ_VARIABLES ...] [--keyword KEYWORD] [--value VALUE] [--path PATH] name
 
 Reading data from hpc campaigns based on attribute/value matching.
 
@@ -36,7 +35,7 @@ The default folder is the campaign-store path provided in the config.yaml file a
 At the minimum the script needs to be executed in the following way:
 
 ```
-$ python query_attribute_read_variable.py picongpu_laptop --read_variables derive/derived/energy
+$ python query_campaigns.py picongpu_laptop --read_variables derive/derived/energy
  - Inspecing campaigns with names containing: picongpu_laptop
    - Located in the default campaign folder
  - Read variables/attributes: ['derive/derived/energy']
@@ -52,7 +51,7 @@ Three variables are found in the three runs (run 1 and 2 from campaign 1 and run
 A custom `path` can be provided for where campaigns are stored.
 
 ```
-$ python query_attribute_read_variable.py picongpu_laptop --read_variables derive/derived/energy --path /new/path/
+$ python query_campaigns.py picongpu_laptop --read_variables derive/derived/energy --path /new/path/
  - Inspecing campaigns with names containing: picongpu_laptop
    - Located in the default campaign folder
  - Read variables/attributes: ['derive/derived/energy']
@@ -65,7 +64,7 @@ If the value is also provided, an additional filtering is imposed.
 For now the script compares (as strings) the value stored in the attributes that contain the keywork with the value provided by the value entry and looks for the desired read variable(s) only for those files that fit this query.
 
 ```
-$ python query_attribute_read_variable.py picongpu_laptop --read_variables derive/derived/energy derive/derived/poynting --keyword input/customuserinput/minimum_weight  --value 0.04
+$ python query_campaigns.py picongpu_laptop --read_variables derive/derived/energy derive/derived/poynting --keyword input/customuserinput/minimum_weight  --value 0.04
  - Inspecing campaigns with names containing: picongpu_laptop
    - Located in the default campaign folder
  - Read variables/attributes: ['derive/derived/energy', 'derive/derived/poynting']
@@ -77,7 +76,7 @@ Reading picongpu_laptop_01.aca
 READ run02/derive/derived/energy
 READ run02/derive/derived/poynting
 
-$ python query_attribute_read_variable.py picongpu_laptop --read_variables derive/derived/energy derive/derived/poynting --keyword input/customuserinput/minimum_weight   --value 0.03
+$ python query_campaigns.py picongpu_laptop --read_variables derive/derived/energy derive/derived/poynting --keyword input/customuserinput/minimum_weight   --value 0.03
  - Inspecing campaigns with names containing: picongpu_laptop
    - Located in the default campaign folder
  - Read variables/attributes: ['derive/derived/energy', 'derive/derived/poynting']

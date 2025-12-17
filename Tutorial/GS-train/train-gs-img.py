@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 from torch.nn.functional import softmax # Import softmax for confidence scores
 
+save_path = './model/gs_img_weights.pth'
+
 # Training on Gray-Scott images.
 # Images of 800x800 pixels.
 # Training on a 425x425 crop of the image 100 pixels from the top and 195 pixels from the left
@@ -251,3 +253,6 @@ history = train_model(model, train_loader, validation_loader, criterion, optimiz
 # Evaluate and show the mismatches
 #evaluate_model(model, test_loader, device)
 final_report = evaluate_and_report(model, test_loader, test_data, class_to_name, device)
+
+torch.save(model.state_dict(), save_path)
+print("Save model weights to", save_path)

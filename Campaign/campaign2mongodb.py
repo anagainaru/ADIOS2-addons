@@ -3,19 +3,29 @@ import pymongo
 import numpy as np
 import json
 
-import hpc_campaign
+from hpc_campaign.info import format_info
+from hpc_campaign.ls import ls
+from hpc_campaign.manager import Manager
 import adios2
 
 
 class CampaignMongoDB:
     separator = "/"
     prefix_elements = 2
+    dataset_list = []
 
     def __init__(self, collectionAtr, collectionVar):
         self.collectionVar = collectionVar
         self.collectionAtr = collectionAtr
 
     def _extract_info(self, entry):
+        #print(entry, self.dataset_list)
+        for dataset in self.dataset_list:
+            if entry[:len(dataset)] == dataset:
+                # + 1 so we skip the separator
+                # print(entry[len(dataset) + 1:], dataset)
+                return dataset, entry[len(dataset) + 1:]
+
         # identify the file that the variable/attribute belongs to
         temp = entry.split(self.separator)
         prefix = self.prefix_elements
@@ -60,15 +70,38 @@ class CampaignMongoDB:
                 attribute_data[file][atr_name] = read_value
         return attribute_data
 
+    def set_dataset_list(self, campaign, path):
+        manager = Manager(archive=str(campaign))
+        if path != None:
+            manager = Manager(archive=str(campaign), campaign_store=str(path))
+        info_data = manager.info(
+                False, #list_replicas
+                False, #list_files
+                False, #show_deleted
+                False #show_checksum
+                )
+        # info data is a InfoResult, which has datasets: list[DatasetInfo]
+        # class DatasetInfo:
+        # id: int
+        # uuid: str
+        # name: str
+        # mod_time: int
+        # del_time: int
+        # file_format: str
+        # replicas: list[ReplicaInfo] = field(default_factory=list)
+        self.dataset_list = [d.name for d in info_data.datasets]
+
     # read variable list from the campaign files and add them in the mongoDB collection
     # for json files, parst input configuration and add them in the collection
-    def add_campaign_to_collection(self, campaign):
+    def add_campaign_to_collection(self, campaign, path=None):
         print("Adding", campaign, "to the collection")
-        path = ""
-        if args.path is not None:
-            path = self.path + separator
+        self.set_dataset_list(campaign, path)
 
-        with adios2.FileReader(campaign) as f:
+        file = campaign
+        if path is not None:
+            file = path + "/" + file
+
+        with adios2.FileReader(file) as f:
             # add variables to the collection
             variables = f.available_variables()
             variable_data, attribute_data = self._get_variable_data(variables, f)
@@ -127,8 +160,8 @@ class CampaignMongoDB:
 # find all campaigns files in the default campaign-store folder
 def find_campaign_list(campaign_name, path):
     if path is None:
-        return hpc_campaign.List(campaign_name)
-    return hpc_campaign.List(campaign_name, path)
+        return ls(str(campaign_name))
+    return ls(str(campaign_name), campaign_store=str(path))
 
 # python campaign2mongodb.py campaign_names mongodb_client mongodb_db mongodb_collection
 if __name__ == "__main__":
@@ -156,7 +189,7 @@ if __name__ == "__main__":
         cm.drop_collections()
 
     for campaign in campaign_files:
-        cm.add_campaign_to_collection(campaign)
+        cm.add_campaign_to_collection(campaign, path=args.path)
 
     if args.print == True:
         cm.print_collections()

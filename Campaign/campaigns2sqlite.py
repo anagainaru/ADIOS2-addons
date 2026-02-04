@@ -14,9 +14,11 @@ class CampaignSqlite:
     prefix_elements = 2
     dataset_list = []
 
-    def __init__(self, db, cursor):
+    def __init__(self, db, cursor, remove=False):
         self.db = db
         self.cursor = cursor
+        if remove == True:
+            self.drop_tables()
         self.create_tables()
 
     def set_dataset_list(self, campaign, path):
@@ -193,10 +195,7 @@ if __name__ == "__main__":
 
     # find all campaign files that match the pattern
     campaign_files = find_campaign_list(args.campaign_name, args.path)
-    cm = CampaignSqlite(db, cursor)
-
-    if args.remove == True:
-        cm.drop_tables()
+    cm = CampaignSqlite(db, cursor, args.remove)
 
     for campaign in campaign_files:
         cm.add_campaign_to_collection(campaign, path=args.path)

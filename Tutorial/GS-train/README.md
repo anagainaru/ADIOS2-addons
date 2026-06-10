@@ -1,12 +1,13 @@
 # Intructions to run the training demo on Gray-Scott data
 
-Used for the ISC tutorial 2026.
+_Used for the ISC tutorial 2026._
 
 Steps:
 - Train a visual transformer that predicts if an image is good or bad having an input the actual image
 - Create a campaign with runs of Gray-Scott for different input parameters (Du, Dv, F, k)
-- Next
+- Create a code that chooses the next bach to train on, reads the GS data and generates images for step 1000
 
+Installing all the requirements:
 ```
 $ cat requirements.txt
 torch
@@ -18,11 +19,8 @@ adios2
 python-dateutil
 
 $ ~/_penv/ai-adios-penv/bin/pip install -r requirements.txt
-
 $ du -h -d 1 ~/_penv/ai-adios-penv/
 699M	~/_penv/ai-adios-penv/
-
-$ source ~/_penv/ai-adios-penv/bin/activate
 ```
 
 ## 1. Visual transformer for labeling images
@@ -112,7 +110,7 @@ ADIOS Campaign Archive, version 0.7, created on Jun  9 11:09
 
 Hosts and directories:
   AnaLaptop02   longhostname = mac146553
-     1. /Users/95j/_projects/adios/ISC-tutorial/bigspace
+     1. /Users/user/_projects/adios/ISC-tutorial/bigspace
 
 Other Datasets:
     cbac78222617300fb2563b85c997511b   ADIOS   Jun  8 18:48   Du0.0595_Dv0.369_F0.03723_k0.0682/gs
@@ -127,4 +125,55 @@ Other Datasets:
     35f4d9565bd33a47bbcee4e5c9f3ca45   IMAGE   Jun  8 18:48   Du0.0595_Dv0.369_F0.03723_k0.0682/gs/V/yz/01000
     5a54e15db32a30deb7fd3a4313725ca5   IMAGE   Jun  8 18:48   Du0.0595_Dv0.369_F0.03723_k0.0682/gs/U/yz/01000
     ad8f24e45a443c8fb906021206bda895   IMAGE   Jun  8 18:48   Du0.0595_Dv0.369_F0.03723_k0.0682/gs/U/yz/00600
+```
+
+## 3. Generate batch images
+
+The `utils.py` file has functions for reading random batches of files from the campaign and generating images for the final step of the U variable.
+
+```python
+from utils import (
+    split_path,
+    extract_campaign_runs,
+    choose_random_parameter_batch,
+    read_campaign_step,
+    make_yz_image_from_plane,
+)
+```
+
+The functions can be used in the following manner to generate images for one given batch:
+```python
+# get a list of all adios datasets with GS runs in the campaign
+    entries = extract_campaign_runs(
+        archive=campaign_name,
+        campaign_store=path,
+    )
+
+# choose a random batch of a given size
+    batch = choose_random_parameter_batch(
+        entries,
+        batch_size=args.batch,
+        seed=42,
+    )
+
+# for all the datasets in a batch, read the middle yz plane from the last step of U 
+    sample = [entry["dataset"] for entry in batch]
+    arrays = read_campaign_step(
+        campaign_file=campaign_name,
+        campaign_store_path=path,
+        dataset=sample,
+        step=4,
+        variable="U",
+    )
+
+# for each dataset, create an image of the yz plane
+    for dataset, yz in arrays.items():
+        print(dataset, yz.shape, yz[32,32])
+        run_name = dataset.removesuffix("/gs")
+        image_name = f"{run_name}_U010000_yz.png"
+        img = make_yz_image_from_plane(
+            yz,
+            image_name,
+            save=False,
+        )
 ```

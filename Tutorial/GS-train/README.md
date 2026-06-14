@@ -3,9 +3,20 @@
 _Used for the ISC tutorial 2026._
 
 Steps:
-- Train a visual transformer that predicts if an image is good or bad having an input the actual image
-- Create a campaign with runs of Gray-Scott for different input parameters (Du, Dv, F, k)
-- Create a code that chooses the next bach to train on, reads the GS data and generates images for step 1000
+1. On the small image dataset:
+    - Train a visual transformer that predicts if an image is good or bad having an input the actual image
+    - Train a XGBClassifier decision trees that takes the parameters and predicts if an image is good or not
+2. Create campaigns:
+    - Create a campaign with the images
+    - Create a separate campaign with ADIOS runs of Gray-Scott for different input parameters (Du, Dv, F, k)
+3. Training loop for the large dataset of runs
+    - Code that chooses the next bach to train on, reads the GS data and generates images for step 1000
+    - Train or update the weights of the pre-trained XGBClassifier model on the generated images
+4. Predict using the XGBClassifier model
+    - Predict labels of all images in a folder (using the param and image model and compare)
+    - Predict new labels that will give good images
+
+## Usage
 
 Installing all the requirements:
 ```
@@ -17,14 +28,22 @@ numpy
 hpc-campaign
 adios2
 python-dateutil
+matplotlib
+joblib
+scikit-learn
+xgboost
 
 $ ~/_penv/ai-adios-penv/bin/pip install -r requirements.txt
 $ du -h -d 1 ~/_penv/ai-adios-penv/
-699M	~/_penv/ai-adios-penv/
+912M	~/_penv/ai-adios-penv/
 ```
 
-## 1. Visual transformer for labeling images
+OpenMP needs to be installed for the XGBClassifier, and I needed to do:
+```
+export DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib:$DYLD_LIBRARY_PATH
+```
 
+### Step 1: Visual transformer for labeling images
 The tutorial uses a hybrid model that combines the Vision Transformer (ViT) design with a pre-trained ResNet18.
 
 ```python
@@ -80,7 +99,42 @@ Du0.188_Dv0.316_F0.01717_k0.0751_U010000_yz.png: bad (0.999)
 Du0.332_Dv0.0812_F0.03782_k0.0622_U010000_yz.png: good (1.000)
 ```
 
-## 2. Create a campaign with Gray-Scott runs
+### Step 1: XGBClassifier for labeling images
+
+Usage:
+```
+$ python pre-train.py -h
+usage: pre-train.py [-h] [--out-model OUT_MODEL] folder
+
+positional arguments:
+  folder                Folder with all pre-labeled images
+
+options:
+  -h, --help            show this help message and exit
+  --out-model OUT_MODEL
+                        Output pre-trained model
+
+$ python pre-train.py smallspace/img/
+Train an XGBClassifier on 236 samples and 79 testing samples
+Accuracy: 0.9493670886075949
+              precision    recall  f1-score   support
+
+           0       0.95      0.98      0.96        55
+           1       0.95      0.88      0.91        24
+
+    accuracy                           0.95        79
+   macro avg       0.95      0.93      0.94        79
+weighted avg       0.95      0.95      0.95        79
+
+Saved model to param_initial.json
+```
+
+Sanity check, predict all the images in the small dataset:
+```
+$ python predict_exising_images.py smallspace.aca image_model/image_model.pth param_initial.json
+```
+
+### Step 2: Create a campaign with Gray-Scott runs
 
 The `hpc-campaign` package should be installed in the python virtual environment.
 The default path to the campaigns should be defined in `~/.config/hpc-campaign/config.yaml`
@@ -127,53 +181,149 @@ Other Datasets:
     ad8f24e45a443c8fb906021206bda895   IMAGE   Jun  8 18:48   Du0.0595_Dv0.369_F0.03723_k0.0682/gs/U/yz/00600
 ```
 
-## 3. Generate batch images
+### Step 2: Create a campaign with images
 
-The `utils.py` file has functions for reading random batches of files from the campaign and generating images for the final step of the U variable.
+Create an archive file in the . folder.
 
-```python
-from utils import (
-    split_path,
-    extract_campaign_runs,
-    choose_random_parameter_batch,
-    read_campaign_step,
-    make_yz_image_from_plane,
-)
+```
+python create_small_archive.py smallspace/img smallspace.aca
 ```
 
-The functions can be used in the following manner to generate images for one given batch:
-```python
-# get a list of all adios datasets with GS runs in the campaign
-    entries = extract_campaign_runs(
-        archive=campaign_name,
-        campaign_store=path,
-    )
+### Step 3: Train XGBClassifier using big ADIOS runs
 
-# choose a random batch of a given size
-    batch = choose_random_parameter_batch(
-        entries,
-        batch_size=args.batch,
-        seed=42,
-    )
+The code will loop a max number of iterations, choose random batched of runs from the big campaign of size given by the input parameter, read the ADIOS data, generate images, use the image model to label the images and train on the batch. If the accuracy is bettern than the given parameter the process stops.
 
-# for all the datasets in a batch, read the middle yz plane from the last step of U 
-    sample = [entry["dataset"] for entry in batch]
-    arrays = read_campaign_step(
-        campaign_file=campaign_name,
-        campaign_store_path=path,
-        dataset=sample,
-        step=4,
-        variable="U",
-    )
+<img width="849" height="393" alt="Train loop for the XGBClassifier" src="https://github.com/user-attachments/assets/8998a4d8-68fe-4bae-a6a3-55427c7c5edc" />
 
-# for each dataset, create an image of the yz plane
-    for dataset, yz in arrays.items():
-        print(dataset, yz.shape, yz[32,32])
-        run_name = dataset.removesuffix("/gs")
-        image_name = f"{run_name}_U010000_yz.png"
-        img = make_yz_image_from_plane(
-            yz,
-            image_name,
-            save=False,
-        )
+If a pre-trained model is available (default this is set to None) the training starts with this model.
+
 ```
+$ python train.py -h
+usage: train.py [-h] [--img-model IMG_MODEL] [--param-model PARAM_MODEL] [--batch BATCH] [--iterations ITERATIONS] [--accuracy ACCURACY] [--verbose VERBOSE] campaign
+
+positional arguments:
+  campaign              Campaign file with all the Gray-Scott runs
+
+options:
+  -h, --help            show this help message and exit
+  --img-model IMG_MODEL
+  --param-model PARAM_MODEL
+                        pre-trained initial parameted model
+  --batch BATCH
+  --iterations ITERATIONS
+  --accuracy ACCURACY
+  --verbose VERBOSE
+
+$ python train.py bigspace/bigspace.aca --img-model image_model/image_model.pth --batch 200 --iterations 3 --param-model param_initial.json
+Iteration 0
+[0] 200 uncertain samples selected
+!! Dataset Du0.353_Dv0.0404_F0.002438_k0.0502/gs/U has nan values, removing it from the batch
+!! Dataset Du0.32_Dv0.0276_F0.0179_k0.0605/gs/U has nan values, removing it from the batch
+!! Dataset Du0.379_Dv0.0238_F0.01327_k0.0476/gs/U has nan values, removing it from the batch
+!! Dataset Du0.394_Dv0.0208_F0.0107_k0.0481/gs/U has nan values, removing it from the batch
+!! Dataset Du0.362_Dv0.0195_F0.02673_k0.0579/gs/U has nan values, removing it from the batch
+Training on 195 datasets. Generating images...
+Train an XGBClassifier on 146 samples and 49 testing samples
+Accuracy: 0.8979591836734694
+              precision    recall  f1-score   support
+
+           0       0.98      0.91      0.94        45
+           1       0.43      0.75      0.55         4
+
+    accuracy                           0.90        49
+   macro avg       0.70      0.83      0.74        49
+weighted avg       0.93      0.90      0.91        49
+
+Iteration 1
+[1] 200 uncertain samples selected
+!! Dataset Du0.353_Dv0.0404_F0.002438_k0.0502/gs/U has nan values, removing it from the batch
+!! Dataset Du0.394_Dv0.0208_F0.0107_k0.0481/gs/U has nan values, removing it from the batch
+!! Dataset Du0.379_Dv0.0238_F0.01327_k0.0476/gs/U has nan values, removing it from the batch
+!! Dataset Du0.32_Dv0.0276_F0.0179_k0.0605/gs/U has nan values, removing it from the batch
+!! Dataset Du0.362_Dv0.0195_F0.02673_k0.0579/gs/U has nan values, removing it from the batch
+!! Dataset Du0.132_Dv0.398_F0.0137_k0.0404/gs/U has nan values, removing it from the batch
+Training on 194 datasets. Generating images...
+Train an XGBClassifier on 291 samples and 98 testing samples
+Accuracy: 0.9795918367346939
+              precision    recall  f1-score   support
+
+           0       1.00      0.98      0.99        91
+           1       0.78      1.00      0.88         7
+
+    accuracy                           0.98        98
+   macro avg       0.89      0.99      0.93        98
+weighted avg       0.98      0.98      0.98        98
+
+Saved model to param_model/param_xgb.json
+```
+
+### Step 4: Predict labels of existing runs using XGBClassifier and the Image model
+
+Predict all labels of all images found in a given campaign. The code assumes the campaign stores the png images directly.
+
+```
+$ python predict_exising_images.py 
+usage: predict_exising_images.py [-h] [--path PATH] campaign img_model params_model
+
+positional arguments:
+  campaign      Camaign file with images that will be predicted with both models
+  img_model
+  params_model
+
+options:
+  -h, --help    show this help message and exit
+  --path PATH
+
+$ python predict_exising_images.py smallspace.aca image_model/image_model.pth param_model/param_xgb.json
+Dataset: (0.15, 0.15, 0.035, 0.05) ParamModel: bad ImgModel: bad
+Dataset: (0.15, 0.15, 0.03, 0.06) ParamModel: bad ImgModel: bad
+Dataset: (0.25, 0.05, 0.025, 0.045) ParamModel: bad ImgModel: bad
+Dataset: (0.15, 0.15, 0.015, 0.065) ParamModel: bad ImgModel: bad
+Dataset: (0.15, 0.1, 0.03, 0.065) ParamModel: bad ImgModel: bad
+Dataset: (0.2, 0.05, 0.015, 0.06) ParamModel: good ImgModel: good
+Dataset: (0.25, 0.05, 0.035, 0.065) ParamModel: good ImgModel: good
+Dataset: (0.25, 0.1, 0.015, 0.06) ParamModel: bad ImgModel: good
+Dataset: (0.2, 0.05, 0.015, 0.055) ParamModel: good ImgModel: good
+Dataset: (0.25, 0.1, 0.005, 0.055) ParamModel: bad ImgModel: good
+Dataset: (0.15, 0.05, 0.02, 0.055) ParamModel: good ImgModel: good
+Dataset: (0.25, 0.05, 0.005, 0.06) ParamModel: good ImgModel: good
+```
+
+## Step 4: Find run parameters that will create good images
+
+Given a range for each parameter, the code samples the space with a given frequency and returns all parameter combinations that could produce good images (with the associated confidence).
+
+```
+$ python predict_good_labels.py -h
+usage: predict_good_labels.py [-h] [--Du-min DU_MIN] [--Du-max DU_MAX] [--Dv-min DV_MIN] [--Dv-max DV_MAX] [--F-min F_MIN] [--F-max F_MAX] [--k-min K_MIN] [--k-max K_MAX]
+                              [--sampling-frequency SAMPLING_FREQUENCY] [--model MODEL]
+
+options:
+  -h, --help            show this help message and exit
+  --Du-min DU_MIN       Gray-Scott Du parameter value
+  --Du-max DU_MAX       Gray-Scott Du parameter value
+  --Dv-min DV_MIN       Gray-Scott Dv parameter value
+  --Dv-max DV_MAX       Gray-Scott Dv parameter value
+  --F-min F_MIN         Gray-Scott F parameter value
+  --F-max F_MAX         Gray-Scott F parameter value
+  --k-min K_MIN         Gray-Scott k parameter value
+  --k-max K_MAX         Gray-Scott k parameter value
+  --sampling-frequency SAMPLING_FREQUENCY
+                        Number of samples per parameter dimension. Example: sampling_frequency=10 evaluates 10^4 parameter combinations.
+  --model MODEL
+$ python predict_good_labels.py --sampling-frequency 4
+{'Du': np.float32(0.16667), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.9174705147743225}
+{'Du': np.float32(0.16667), 'Dv': np.float32(0.04), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.8929235935211182}
+{'Du': np.float32(0.16667), 'Dv': np.float32(0.02), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.8929235935211182}
+{'Du': np.float32(0.23333), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.8885332942008972}
+{'Du': np.float32(0.16667), 'Dv': np.float32(0.06), 'F': np.float32(0.01833), 'k': np.float32(0.05), 'probability': 0.8866250514984131}
+{'Du': np.float32(0.1), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.8865153193473816}
+{'Du': np.float32(0.1), 'Dv': np.float32(0.04), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.882911205291748}
+{'Du': np.float32(0.1), 'Dv': np.float32(0.02), 'F': np.float32(0.025), 'k': np.float32(0.05), 'probability': 0.882911205291748}
+{'Du': np.float32(0.16667), 'Dv': np.float32(0.06), 'F': np.float32(0.005), 'k': np.float32(0.05), 'probability': 0.8782230019569397}
+{'Du': np.float32(0.3), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.07), 'probability': 0.8630889058113098}
+{'Du': np.float32(0.3), 'Dv': np.float32(0.06), 'F': np.float32(0.005), 'k': np.float32(0.05), 'probability': 0.8504162430763245}
+{'Du': np.float32(0.3), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.09), 'probability': 0.8487341403961182}
+{'Du': np.float32(0.1), 'Dv': np.float32(0.06), 'F': np.float32(0.01833), 'k': np.float32(0.05), 'probability': 0.8484734892845154}
+```
+

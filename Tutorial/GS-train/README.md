@@ -11,7 +11,8 @@ Steps:
     - Create a separate campaign with ADIOS runs of Gray-Scott for different input parameters (Du, Dv, F, k)
 3. Training loop for the large dataset of runs
     - Code that chooses the next bach to train on, reads the GS data and generates images for step 1000
-    - Train or update the weights of the pre-trained XGBClassifier model on the generated images
+    - Create lables for all datasets by using the image model
+    - Train or update the weights of the pre-trained XGBClassifier model (using the parameters and the labels)
 4. Predict using the XGBClassifier model
     - Predict labels of all images in a folder (using the param and image model and compare)
     - Predict new labels that will give good images

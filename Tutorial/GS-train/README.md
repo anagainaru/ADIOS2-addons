@@ -45,6 +45,7 @@ export DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib:$DYLD_LIBRARY_PATH
 ```
 
 ### Step 1: Visual transformer for labeling images
+
 The tutorial uses a hybrid model that combines the Vision Transformer (ViT) design with a pre-trained ResNet18.
 
 ```python
@@ -327,4 +328,3 @@ $ python predict_good_labels.py --sampling-frequency 4
 {'Du': np.float32(0.3), 'Dv': np.float32(0.06), 'F': np.float32(0.025), 'k': np.float32(0.09), 'probability': 0.8487341403961182}
 {'Du': np.float32(0.1), 'Dv': np.float32(0.06), 'F': np.float32(0.01833), 'k': np.float32(0.05), 'probability': 0.8484734892845154}
 ```
-
